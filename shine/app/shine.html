@@ -274,9 +274,9 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 .focus::before{content:"";position:absolute;inset:-1px;border-radius:29px;padding:1.5px;background:var(--grad);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .focus h2 .spark{width:20px;height:20px;border-radius:7px;background:var(--grad);display:inline-grid;place-items:center;margin-right:8px;vertical-align:-4px}
-/* swipe to delete (drag right) */
+/* swipe to delete (drag left, like iPhone) */
 .swipe{position:relative;overflow:hidden;border-radius:14px;touch-action:pan-y;-webkit-user-select:none;user-select:none}
-.swipe-bg{position:absolute;inset:0;border-radius:14px;background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger);display:flex;align-items:center;gap:6px;padding-left:16px;font-weight:600;font-size:13px;opacity:0;pointer-events:none}
+.swipe-bg{position:absolute;inset:0;border-radius:14px;background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger);display:flex;align-items:center;justify-content:flex-end;gap:6px;padding-right:18px;font-weight:600;font-size:13px;opacity:0;pointer-events:none}
 .swipe.active .swipe-bg{opacity:1}
 .swipe.armed .swipe-bg{background:var(--danger);color:#fff}
 .swipe .row{position:relative;transition:transform .24s cubic-bezier(.2,.8,.2,1)}
@@ -1391,13 +1391,13 @@ document.addEventListener('pointermove', e => {
   const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
   if (!sw.mode) {
     if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-    sw.mode = dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.2 ? 'swipe' : 'none';
+    sw.mode = dx < 0 && Math.abs(dx) > Math.abs(dy) * 1.2 ? 'swipe' : 'none';
     if (sw.mode === 'swipe') { sw.w.classList.add('active'); try { sw.w.setPointerCapture(e.pointerId); } catch {} }
     else { sw = null; return; }
   }
-  sw.dx = Math.max(0, dx);
+  sw.dx = Math.min(0, dx);
   sw.row.style.transform = `translateX(${sw.dx}px)`;
-  sw.w.classList.toggle('armed', sw.dx > Math.min(140, sw.w.offsetWidth * 0.35));
+  sw.w.classList.toggle('armed', -sw.dx > Math.min(140, sw.w.offsetWidth * 0.35));
 });
 function endSwipe(e){
   if (!sw || (e && e.pointerId !== sw.pid)) return;
@@ -1417,7 +1417,7 @@ function swipeDelete(s){
   animateOut(s.w, () => doDelete(it));
 }
 function animateOut(w, done){
-  const r = w.querySelector('.row'); r.style.transition = 'transform .2s ease'; r.style.transform = 'translateX(110%)';
+  const r = w.querySelector('.row'); r.style.transition = 'transform .2s ease'; r.style.transform = 'translateX(-110%)';
   setTimeout(() => { w.style.height = w.offsetHeight + 'px'; w.classList.add('gone'); requestAnimationFrame(() => { w.style.height = '0px'; w.style.opacity = '0'; }); setTimeout(done, 200); }, 180);
 }
 async function doDelete(it){
