@@ -1,0 +1,1361 @@
+<title>Shine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: bento of frosted widgets over a soft aurora. Header (greeting + clock) / capture / bento (stats, flow, tasks, mail). Floating pill nav. Sunrise gradient = Shine. */
+:root{
+  --bg:#F1F2F6; --ink:#15161C; --muted:#696C7B; --glass:rgba(255,255,255,.68); --glass-strong:rgba(255,255,255,.9);
+  --stroke:rgba(255,255,255,.95); --line:rgba(21,22,40,.08); --line-2:rgba(21,22,40,.14); --fill:rgba(21,22,40,.05);
+  --sun1:#FFB547; --sun2:#FF6A3D; --sun3:#FF4D8D; --accent:#FF5F45;
+  --work:#3B6CFF; --work-bg:rgba(59,108,255,.12); --life:#0B9E70; --life-bg:rgba(11,158,112,.13); --danger:#E5484D; --focus:#3B6CFF;
+  --blob1:#FFD2B3; --blob2:#DCD4FF; --blob3:#C5F0DD;
+  --shadow:0 1px 1px rgba(21,22,40,.03),0 14px 36px -16px rgba(21,22,40,.20);
+  --grad:linear-gradient(120deg,var(--sun1),var(--sun2) 52%,var(--sun3));
+  --font:"Geist","IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --hour:54px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A0B0F; --ink:#F2F2F6; --muted:#9A9DAE; --glass:rgba(27,28,38,.62); --glass-strong:rgba(31,32,44,.92);
+  --stroke:rgba(255,255,255,.07); --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.14); --fill:rgba(255,255,255,.06);
+  --work:#7E9CFF; --work-bg:rgba(126,156,255,.17); --life:#3FD8A6; --life-bg:rgba(63,216,166,.15); --danger:#FF6B70; --focus:#7E9CFF;
+  --blob1:#4A2213; --blob2:#261D5C; --blob3:#0B3527; --shadow:none; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A0B0F; --ink:#F2F2F6; --muted:#9A9DAE; --glass:rgba(27,28,38,.62); --glass-strong:rgba(31,32,44,.92);
+  --stroke:rgba(255,255,255,.07); --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.14); --fill:rgba(255,255,255,.06);
+  --work:#7E9CFF; --work-bg:rgba(126,156,255,.17); --life:#3FD8A6; --life-bg:rgba(63,216,166,.15); --danger:#FF6B70; --focus:#7E9CFF;
+  --blob1:#4A2213; --blob2:#261D5C; --blob3:#0B3527; --shadow:none; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;margin:0;-webkit-font-smoothing:antialiased}
+.aura{position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(42% 38% at 6% 0%,var(--blob1),transparent 72%),radial-gradient(38% 34% at 96% 6%,var(--blob2),transparent 72%),radial-gradient(46% 40% at 62% 104%,var(--blob3),transparent 72%)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+.page{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px;
+  padding-block:max(26px,env(safe-area-inset-top,0px)) calc(108px + env(safe-area-inset-bottom,0px));
+  padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px))}
+
+/* header */
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
+.brand{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;letter-spacing:-.01em;margin-bottom:10px}
+.brand i{width:22px;height:22px;border-radius:7px;background:var(--grad);display:grid;place-items:center;box-shadow:0 4px 14px -4px var(--sun2)}
+.brand i svg{color:#fff}
+.hello h1{margin:0;font-size:34px;line-height:1.15;font-weight:650;letter-spacing:-.035em;text-wrap:balance}
+.hello p{margin:6px 0 0;color:var(--muted);font-size:14.5px}
+.hello p em{font-style:normal;color:var(--ink);font-weight:600}
+.top-r{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.clock{display:flex;align-items:baseline;gap:6px;font-weight:600;letter-spacing:-.04em;line-height:1}
+.clock #clock-t{font-size:48px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.clock #clock-ap{font-size:14px;letter-spacing:0;color:var(--muted);font-weight:500}
+.dateline{font-size:13px;color:var(--muted)}
+.seg{display:inline-flex;background:var(--fill);border-radius:999px;padding:3px;gap:2px}
+.seg button{white-space:nowrap;border:0;background:transparent;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:500;color:var(--muted);display:flex;align-items:center;gap:6px}
+.seg button[aria-pressed="true"]{background:var(--glass-strong);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot.work{background:var(--work)} .dot.personal{background:var(--life)}
+
+/* glass surfaces */
+.tile,.panel,.capture,.stat,.note-card,.dialog,.tabs{background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);border:1px solid var(--stroke);box-shadow:var(--shadow)}
+.tile,.panel{border-radius:28px;padding:20px 20px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.panel h2,.tile h2{font-size:16px;margin:0 0 8px;font-weight:650;display:flex;justify-content:space-between;align-items:center;gap:8px;letter-spacing:-.02em}
+.h-actions{display:flex;gap:8px;align-items:center;font-weight:400;font-size:12px;color:var(--muted)}
+
+/* capture */
+.capture{border-radius:28px;padding:10px;display:flex;flex-direction:column;gap:8px;position:relative}
+.capture::before{content:"";position:absolute;inset:-1px;border-radius:29px;padding:1.5px;background:var(--grad);opacity:0;transition:opacity .2s;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.capture:focus-within::before{opacity:1}
+.cap-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:0 4px 2px}
+.cap-head .hint{color:var(--muted);font-size:12.5px}
+.cap-head .seg button{padding:5px 12px;font-size:12.5px}
+.cap-row{display:flex;gap:8px;align-items:stretch}
+.field{position:relative;flex:1;min-width:0;display:flex}
+.field svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);pointer-events:none}
+.field input{flex:1;min-width:0;border:0;background:transparent;border-radius:20px;padding:15px 14px 15px 50px;font-size:17px}
+.field input::placeholder{color:var(--muted)}
+.field input:focus,.cap-row textarea:focus{outline:none}
+.cap-row textarea{flex:1;min-width:0;border:0;background:var(--fill);border-radius:20px;padding:14px;min-height:150px;resize:vertical;font-size:15px}
+.btn{border:1px solid var(--line-2);background:var(--glass-strong);border-radius:14px;padding:8px 14px;font-weight:500;font-size:13.5px;white-space:nowrap;color:var(--ink)}
+.btn:hover{filter:brightness(.97)}
+.btn.primary{background:var(--grad);color:#fff;border:0;font-weight:600;box-shadow:0 6px 18px -8px var(--sun2)}
+.btn.primary:hover{filter:brightness(1.05)}
+.cap-row > .btn.primary{padding:0 24px;border-radius:20px}
+.btn.danger{color:var(--danger);border-color:var(--danger);background:transparent}
+.btn.sm{padding:4px 11px;font-size:12.5px;border-radius:10px}
+.btn:disabled{opacity:.5;cursor:default}
+a.btn{text-decoration:none;display:inline-flex;align-items:center}
+.icon-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line-2);background:var(--glass-strong);font-size:17px;line-height:1;display:grid;place-items:center;padding:0;color:var(--ink)}
+.mic{width:52px;display:grid;place-items:center;padding:0;border-radius:20px;border:0;background:var(--fill)}
+.mic[data-on="true"]{background:var(--danger);color:#fff}
+.cap-col{display:flex;flex-direction:column;gap:8px}
+.cap-col .btn.primary{padding:12px 18px;border-radius:18px}
+.status{font-size:12.5px;color:var(--muted);padding:0 8px 4px}
+.status.err{color:var(--danger)}
+.status:empty,.preview:empty,#banner:empty{display:none}
+
+/* preview */
+.preview{display:flex;flex-direction:column;gap:8px;padding:0 4px 4px}
+.pv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;border-radius:18px;padding:10px 12px;background:var(--fill)}
+.pv.work{background:var(--work-bg)} .pv.personal{background:var(--life-bg)}
+.pv-fields{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.pv-fields input,.pv-fields select{border:1px solid var(--line-2);background:var(--glass-strong);border-radius:10px;padding:6px 9px;font-size:13px;min-width:0;color:var(--ink)}
+.pv-fields .t{flex:1 1 240px}
+.tag{font-size:11.5px;color:var(--muted);background:var(--glass-strong);border-radius:8px;padding:2px 8px}
+.pv-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;align-items:center}
+.pv-actions .note{margin-right:auto;font-size:12.5px;color:var(--muted)}
+.pv-gcal{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;flex-basis:100%;font-size:12.5px;color:var(--muted)}
+.pv-gcal label{display:flex;gap:5px;align-items:center}
+.pv-gcal input[type=text]{flex:1 1 220px}
+.tzline{font-size:12px;color:var(--muted)}
+.banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--glass);border:1px solid var(--stroke);border-radius:18px;padding:8px 8px 8px 16px;font-size:13px}
+
+/* bento */
+.bento{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-areas:"stats stats" "flow focus" "flow tasks" "flow mail" "flow notes";gap:16px;align-items:start}
+.bento.wide{grid-template-areas:"stats stats" "focus focus" "flow flow" "tasks mail" "notes notes"}
+.stats{grid-area:stats;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:16px}
+.flow{grid-area:flow} .tasks{grid-area:tasks} .mail{grid-area:mail} .recent{grid-area:notes}
+.stat{border-radius:24px;padding:14px 18px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .lbl{font-size:12px;color:var(--muted);font-weight:500}
+.stat b{font-size:30px;font-weight:650;letter-spacing:-.04em;line-height:1.15;font-variant-numeric:tabular-nums}
+.stat .sub{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat.next b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat.alert b{color:var(--danger)}
+
+.group-label{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.04em;margin:12px 0 2px;display:flex;gap:6px;align-items:center}
+.group-label.overdue{color:var(--danger)}
+.empty{color:var(--muted);font-size:13px;padding:8px 0}
+.err-line{color:var(--danger);font-size:12.5px;padding:4px 0}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* rows */
+.row{display:flex;align-items:flex-start;gap:12px;padding:8px 8px;border-radius:14px}
+.row:hover{background:var(--fill)}
+.check{width:21px;height:21px;margin-top:0;flex:none;border-radius:50%;border:2px solid var(--line-2);background:transparent;padding:0;display:grid;place-items:center}
+.row.work .check{border-color:var(--work)} .row.personal .check{border-color:var(--life)}
+.row.done .check{background:var(--muted);border-color:var(--muted)}
+.row.done .check::after{content:"";width:8px;height:4px;border:2px solid var(--bg);border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.kind{font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:600;min-width:44px;margin-top:1px;color:var(--muted)}
+.row.work .kind{color:var(--work)} .row.personal .kind{color:var(--life)}
+.row-main{flex:1;min-width:0;border:0;background:transparent;text-align:left;padding:0;display:flex;flex-direction:column;gap:1px;color:var(--ink)}
+.row-main .title{overflow-wrap:anywhere;font-weight:500}
+.row.done .title{text-decoration:line-through;color:var(--muted)}
+.meta{font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+.meta .late{color:var(--danger);font-weight:600}
+
+/* flow */
+.flow-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.flow-head h2{margin:0;font-size:20px;letter-spacing:-.03em}
+.flow-ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.flow-ctl .nav{display:flex;gap:4px;align-items:center}
+.allday{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:10px}
+.allday .chip{width:auto;max-width:100%}
+.tl{position:relative;margin:10px 0 6px}
+.hr{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+.hr span{position:absolute;left:0;top:-8px;font-size:11px;color:var(--muted);line-height:16px;font-variant-numeric:tabular-nums}
+.tl-evts{position:absolute;left:44px;right:0;top:0;bottom:0}
+.ev{position:absolute;border:0;border-radius:14px;padding:6px 10px;text-align:left;display:flex;flex-direction:column;overflow:hidden;font-size:13px;line-height:1.3;gap:1px;color:var(--ink);font-weight:500}
+.ev.work{background:var(--work-bg)} .ev.personal{background:var(--life-bg)}
+.ev .tm{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.ev.work .tm{color:var(--work)} .ev.personal .tm{color:var(--life)}
+.ev > span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ev .sub{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400}
+.ev.past{opacity:.45}
+.ev.short{flex-direction:row;gap:6px;align-items:center;white-space:nowrap}
+.nowline{position:absolute;right:0;height:0;z-index:2;pointer-events:none;border-top:2px solid var(--sun2)}
+.tl > .nowline{left:38px}
+.nowline::before{content:"";position:absolute;left:-5px;top:-6px;width:10px;height:10px;border-radius:50%;background:var(--grad);box-shadow:0 0 0 5px color-mix(in srgb,var(--sun2) 22%,transparent)}
+.nowline span{position:absolute;right:0;top:-22px;font-size:11px;font-weight:600;color:#fff;background:var(--grad);border-radius:8px;padding:1px 7px;font-variant-numeric:tabular-nums}
+.tl-empty{position:absolute;left:52px;right:0;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;text-align:center}
+
+/* week grid */
+.wk{display:flex;flex-direction:column}
+.wk-row{display:grid;grid-template-columns:44px repeat(7,minmax(0,1fr));gap:0 4px}
+.wk-dh{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0 8px;color:var(--muted);font-size:12px;border-radius:14px}
+.wk-dh b{font-size:18px;font-weight:600;color:var(--ink);width:34px;height:34px;display:grid;place-items:center;border-radius:50%;font-variant-numeric:tabular-nums}
+.wk-dh.today b{background:var(--grad);color:#fff}
+.wk-dh:hover{background:var(--fill)}
+.wk-ad{display:flex;flex-direction:column;gap:3px;padding-bottom:6px;min-width:0}
+.wk-gut{font-size:11px;color:var(--muted);padding-top:4px}
+.wk-body{position:relative;margin-top:8px}
+.wk-cols{position:absolute;left:48px;right:0;top:0;bottom:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.wk-col{position:relative;border-radius:12px}
+.wk-col.today{background:color-mix(in srgb,var(--sun1) 9%,transparent)}
+.wk-col .ev{padding:4px 6px;font-size:11.5px;border-radius:10px}
+.wk-col .ev .tm{font-size:10.5px}
+.wk-col .nowline{left:0}
+.wk-col .nowline span{display:none}
+
+/* month */
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.month .wd{font-size:12px;color:var(--muted);padding:2px 8px 6px}
+.mcell{min-height:104px;border-radius:14px;padding:6px;display:flex;flex-direction:column;gap:3px;min-width:0;cursor:pointer;background:var(--fill);border:0;text-align:left;color:var(--ink)}
+.mcell:hover{background:var(--line-2)}
+.mcell.out{background:transparent} .mcell.out .mnum{opacity:.4}
+.mnum{font-size:12.5px;font-weight:600;padding:1px 6px;align-self:flex-start;font-variant-numeric:tabular-nums;border-radius:8px}
+.mcell.today .mnum{background:var(--grad);color:#fff}
+.more{font-size:11.5px;color:var(--muted);padding-left:4px}
+.chip{border:0;text-align:left;font-size:12.5px;border-radius:9px;padding:5px 8px;display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:500}
+.chip.work{background:var(--work-bg)} .chip.personal{background:var(--life-bg)}
+.chip.task{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)}
+.chip.task.work{box-shadow:inset 0 0 0 1.5px var(--work)} .chip.task.personal{box-shadow:inset 0 0 0 1.5px var(--life)}
+.chip.done{opacity:.5;text-decoration:line-through}
+.chip.hi::before{content:"★ ";color:var(--sun2)}
+.chip .tm{font-size:11px;font-weight:600;margin-right:5px;font-variant-numeric:tabular-nums}
+.mcell .chip{font-size:11.5px;padding:3px 6px}
+.agenda{display:flex;flex-direction:column;gap:6px}
+.ag-day{display:grid;grid-template-columns:54px minmax(0,1fr);gap:8px;align-items:start;padding:8px 10px;border-radius:16px;background:var(--fill)}
+.ag-day.today{background:color-mix(in srgb,var(--sun1) 16%,transparent)}
+.ag-h{border:0;background:transparent;padding:2px 0 0;text-align:left;color:var(--muted);font-size:12px;line-height:1.3}
+.ag-h b{display:block;font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
+.ag-items{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ag-none{font-size:12px;color:var(--muted);padding-top:4px}
+.raw{font-size:12px;color:var(--muted)}
+
+/* mail */
+.mrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:start;padding:10px 4px;border-top:1px solid var(--line)}
+.mrow:first-of-type{border-top:0}
+.mrow-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.mrow-main b{font-weight:550;overflow-wrap:anywhere}
+.mrow-act{grid-column:2;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.mtag{font-size:11px;font-weight:600;border-radius:7px;padding:1px 7px;background:var(--fill);color:var(--muted);margin-top:2px}
+.mtag.high{background:var(--danger);color:#fff}
+.mail details{font-size:12.5px;color:var(--muted);margin-top:8px}
+.mail details summary{cursor:pointer}
+.mail .set-row{display:flex;gap:6px;margin-top:6px}
+.mail .set-row input{flex:1;min-width:0;border:1px solid var(--line-2);background:var(--glass-strong);border-radius:10px;padding:6px 9px}
+
+/* notes */
+.notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.note-card{border-radius:24px;padding:18px;text-align:left;display:flex;flex-direction:column;gap:6px;min-width:0;color:var(--ink)}
+.note-card strong{font-weight:600}
+.note-card p{margin:0;color:var(--muted);font-size:13px;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+
+/* floating nav */
+.tabs{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:25;display:flex;gap:4px;padding:6px;border-radius:999px;background:var(--glass-strong);box-shadow:0 14px 40px -12px rgba(0,0,0,.35)}
+.tabs a{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;color:var(--muted);text-decoration:none;font-weight:550;font-size:14px;white-space:nowrap}
+.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.tabs .count{font-size:12px;opacity:.75}
+
+/* dialog */
+.overlay{position:fixed;inset:0;background:rgba(10,11,16,.4);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:flex-start;justify-content:center;
+  padding:max(48px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));z-index:40;overflow-y:auto}
+.dialog{background:var(--glass-strong);border-radius:28px;width:100%;max-width:580px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.dialog h3{margin:0;font-size:19px;font-weight:650;letter-spacing:-.02em}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.form .full{grid-column:1/-1}
+.form input,.form select,.form textarea{border:1px solid var(--line-2);background:var(--fill);border-radius:12px;padding:9px 11px;font-size:14px;color:var(--ink);min-width:0}
+.form textarea{min-height:90px;resize:vertical}
+.dlg-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.dlg-actions .left{margin-right:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.related{border-top:1px solid var(--line);padding-top:10px}
+.related h4{margin:0 0 4px;font-size:12.5px;color:var(--muted);font-weight:600}
+.gcal-box{border-radius:18px;background:var(--fill);padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.gcal-box .opts{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.gcal-box input[type=text]{border:1px solid var(--line-2);background:var(--glass-strong);border-radius:12px;padding:8px 10px;width:100%;color:var(--ink)}
+
+/* date/time inputs: stop iOS intrinsic widths from overflowing */
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;display:block;width:100%;min-height:40px;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left}
+.pv-fields input[type=date],.pv-fields input[type=time]{width:auto;flex:0 1 150px;min-height:34px}
+.form input:focus-visible,.form select:focus-visible,.form textarea:focus-visible{outline-offset:0}
+/* priority */
+.prio{font-size:10.5px;font-weight:700;color:#fff;background:var(--grad);border-radius:6px;padding:1px 6px;letter-spacing:.02em;flex:none}
+.row.low .title{color:var(--muted)}
+.star{flex:none;width:30px;height:30px;margin:-4px -4px 0 0;border:0;background:transparent;border-radius:50%;display:grid;place-items:center;color:var(--line-2);padding:0}
+.star:hover{background:var(--fill);color:var(--muted)}
+.star.on{color:var(--sun2)}
+.row-main .title-line{display:flex;align-items:center;gap:6px;min-width:0}
+.focus{grid-area:focus;position:relative}
+.focus::before{content:"";position:absolute;inset:-1px;border-radius:29px;padding:1.5px;background:var(--grad);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.focus h2 .spark{width:20px;height:20px;border-radius:7px;background:var(--grad);display:inline-grid;place-items:center;margin-right:8px;vertical-align:-4px}
+/* iPad portrait */
+@media (max-width:1099px){
+  .page{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+  .bento,.bento.wide{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"stats stats" "focus focus" "flow flow" "tasks mail" "notes notes"}
+  .stats{grid-template-columns:1.4fr 1fr 1fr 1fr;gap:12px}
+}
+/* phone */
+@media (max-width:699px){
+  :root{--hour:44px}
+  .page{gap:12px;padding:max(14px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(96px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+  .top{align-items:center;flex-wrap:nowrap;gap:10px}
+  .brand{margin-bottom:4px;font-size:14px}
+  .hello h1{font-size:21px}
+  .hello p{font-size:12.5px;margin-top:2px}
+  .top-r{gap:6px}
+  .clock #clock-t{font-size:26px}
+  .clock #clock-ap,.dateline{display:none}
+  .top-r .seg button{padding:4px 8px;font-size:11.5px;white-space:nowrap}
+  .top-r{flex:none}
+  .hello{min-width:0}
+  .top-r .seg .dot{display:none}
+  .capture{border-radius:22px;padding:6px}
+  .capture::before{border-radius:23px}
+  .field input{padding:12px 10px 12px 42px;font-size:16px}
+  .field svg{left:13px}
+  .cap-row > .btn.primary{padding:0 16px;border-radius:16px}
+  .mic{width:44px;border-radius:16px}
+  .cap-head .hint{display:none}
+  .cap-row textarea{font-size:16px;min-height:110px}
+  .bento,.bento.wide{grid-template-columns:minmax(0,1fr);grid-template-areas:"stats" "focus" "tasks" "mail" "flow";gap:12px}
+  .focus::before{border-radius:23px}
+  .recent{display:none}
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .stat.next{display:none}
+  .stat{padding:8px 12px;border-radius:18px;flex-direction:row-reverse;justify-content:flex-end;align-items:baseline;gap:6px}
+  .stat b{font-size:20px}
+  .stat .lbl{font-size:11.5px}
+  .tile,.panel{padding:14px 12px 10px;border-radius:22px}
+  .row{padding:6px 4px;gap:10px}
+  .check{width:22px;height:22px}
+  .group-label{margin:8px 0 0}
+  .flow-head h2{font-size:17px;flex-basis:100%}
+  .flow-ctl{width:100%;justify-content:space-between}
+  .mcell{min-height:46px;padding:4px;border-radius:10px}
+  .mcell .chip{font-size:0;padding:0;height:5px;border-radius:3px;pointer-events:none}
+  .mcell .chip .tm{display:none}
+  .month .wd{padding:2px 0 4px;text-align:center}
+  .tabs a{padding:9px 16px;font-size:13.5px}
+  .banner{padding:6px 6px 6px 12px;font-size:12.5px;flex-wrap:nowrap}
+  .pv{padding:8px 10px}
+  .pv-fields .t{flex-basis:100%}
+  .pv-fields input,.pv-fields select,.pv-gcal input[type=text],.gcal-box input[type=text]{font-size:16px}
+  .pv-actions .note{flex-basis:100%}
+  .overlay{padding:0;align-items:flex-end}
+  .dialog{border-radius:26px 26px 0 0;max-height:92vh;overflow-y:auto;gap:10px;
+    padding:20px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+  .form{gap:8px}
+  .form input,.form select,.form textarea{font-size:16px;padding:8px 10px}
+  .dlg-actions .left{flex-basis:100%}
+  .dlg-actions > .btn{flex:1}
+}
+@media (prefers-reduced-motion:no-preference){.row,.chip,.btn,.ev,.mcell{transition:background .15s,filter .15s}}
+</style>
+
+<div class="aura" aria-hidden="true"></div>
+<div class="page">
+  <header class="top">
+    <div class="hello">
+      <div class="brand"><i><svg width="13" height="13" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16 2l3 10.5L30 16l-11 3.5L16 30l-3-10.5L2 16l11-3.5z"/></svg></i>Shine</div>
+      <h1 id="greet-h">안녕하세요, Sean</h1>
+      <p id="greet-s">오늘을 정리하고 있어요.</p>
+    </div>
+    <div class="top-r">
+      <div class="clock"><span id="clock-t" class="num">--:--</span><span id="clock-ap"></span></div>
+      <div class="dateline" id="today-label"></div>
+      <div class="seg" role="group" aria-label="업무 개인 필터" id="filter">
+        <button data-filter="all" aria-pressed="true">전체</button>
+        <button data-filter="work" aria-pressed="false"><span class="dot work"></span>업무</button>
+        <button data-filter="personal" aria-pressed="false"><span class="dot personal"></span>개인</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="capture" aria-label="빠른 입력">
+    <div class="cap-row line" id="line-row">
+      <div class="field">
+        <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB547"/><stop offset=".55" stop-color="#FF6A3D"/><stop offset="1" stop-color="#FF4D8D"/></linearGradient></defs><path fill="url(#sg)" d="M16 2l3 10.5L30 16l-11 3.5L16 30l-3-10.5L2 16l11-3.5z"/></svg>
+        <input id="quick" type="text" autocomplete="off" placeholder="Shine에게 말해보세요" aria-label="한 줄 입력">
+      </div>
+      <button class="btn mic" id="mic-line" hidden aria-label="음성 입력" title="음성 입력">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <button class="btn primary" id="quick-go">해석</button>
+    </div>
+    <div class="cap-row" id="meet-row" hidden>
+      <textarea id="meeting" aria-label="미팅 메모" placeholder="미팅 메모를 붙여넣거나 말로 입력하세요. Shine이 요약, 후속 액션, 다음 미팅 후보를 뽑아줘요."></textarea>
+      <div class="cap-col">
+        <button class="btn mic" id="mic-meet" hidden aria-label="음성 입력" title="음성 입력" style="height:48px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <button class="btn primary" id="meet-go">Shine 정리</button>
+      </div>
+    </div>
+    <div class="cap-head">
+      <div class="seg" role="group" aria-label="입력 방식" id="mode">
+        <button data-mode="line" aria-pressed="true">한 줄 입력</button>
+        <button data-mode="meeting" aria-pressed="false">미팅 메모 정리</button>
+      </div>
+      <span class="hint" id="cap-hint">예: 다음주 수요일 OOO에게 이메일 전달 · 화요일 한국시간 오후 2시 CJ ENM 화상 미팅</span>
+    </div>
+    <div class="status" id="status" role="status"></div>
+    <div class="preview" id="preview"></div>
+  </section>
+  <div id="banner"></div>
+  <main id="view"></main>
+</div>
+<nav class="tabs" id="tabs">
+  <a href="#today" data-tab="today">오늘</a>
+  <a href="#tasks" data-tab="tasks">할 일<span class="count num" id="cnt-tasks"></span></a>
+  <a href="#notes" data-tab="notes">메모<span class="count num" id="cnt-notes"></span></a>
+</nav>
+<div id="dlg-root"></div>
+
+<script>
+(() => {
+'use strict';
+/* ---------- utils ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fromYmd = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const today0 = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const mondayOf = d => addDays(d, -((d.getDay()+6)%7));
+const WD = ['일','월','화','수','목','금','토'];
+const LTZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } })();
+const TZS = [['Asia/Seoul','한국'],['Asia/Tokyo','일본'],['Asia/Shanghai','중국'],['Asia/Singapore','싱가포르'],['America/Chicago','달라스'],['America/New_York','뉴욕'],['America/Los_Angeles','LA'],['Europe/London','런던'],['Europe/Paris','파리']];
+const tzName = tz => (TZS.find(t => t[0] === tz) || [0, tz.split('/').pop().replace(/_/g,' ')])[1];
+function tzOffset(ms, tz){
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }).formatToParts(new Date(ms));
+  const g = t => Number(p.find(x => x.type === t).value);
+  return Date.UTC(g('year'), g('month')-1, g('day'), g('hour') % 24, g('minute'), g('second')) - Math.floor(ms / 1000) * 1000;
+}
+function wallToUtc(ds, ts, tz){
+  const [y,m,d] = ds.split('-').map(Number), [h,mi] = ts.split(':').map(Number);
+  const guess = Date.UTC(y, m-1, d, h, mi);
+  let u = guess - tzOffset(guess, tz); u = guess - tzOffset(u, tz); return u;
+}
+function utcToTz(u, tz){ const d = new Date(u + tzOffset(u, tz));
+  return { date: `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`, time: `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}` }; }
+function applyTz(it){
+  if (!it.tz || it.tz === LTZ || !it.date || !it.time) { delete it.tz; return it; }
+  it.tzDate = it.date; it.tzTime = it.time;
+  const loc = utcToTz(wallToUtc(it.date, it.time, it.tz), LTZ);
+  it.date = loc.date; it.time = loc.time; it.endTime = it.type === 'event' ? addHour(loc.time) : null; return it;
+}
+const tzNote = it => it.tz ? `${tzName(it.tz)} ${fmtDate(it.tzDate)} ${it.tzTime} = ${tzName(LTZ)} ${fmtDate(it.date)} ${it.time}` : '';
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const decodeHtml = s => { const t = document.createElement('textarea'); t.innerHTML = String(s || ''); return t.value; };
+const isYmd = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+const isHm = s => typeof s === 'string' && /^\d{2}:\d{2}$/.test(s);
+const fmtDate = s => { const d = fromYmd(s); return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`; };
+const addHour = t => { const [h,m] = t.split(':').map(Number); return `${pad((h+1)%24)}:${pad(m)}`; };
+const ls = { get(k, f){ try { const v = localStorage.getItem(k); return v == null ? f : JSON.parse(v); } catch { return f; } },
+             set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+/* ---------- state ---------- */
+const S = {
+  items: [], filter: ls.get('hub.filter', 'all'), mode: 'line', tab: 'today',
+  calMode: ls.get('hub.calMode', 'week'), calAnchor: today0(), showDone: false,
+  preview: null, storeMode: 'loading', aiReady: false,
+  mail: { checkedAt: null, checkedDay: null, results: [], dismissed: [], personalEmail: '' },
+  flowMode: ls.get('hub.flowMode', 'day'), flowDate: today0(),
+  mailLoaded: false, mailBusy: false, mailErr: '', mailMore: false, gcConfirm: false, gcBusy: false, gcErr: '',
+};
+let sample = null, dictation = null, mcp = null, autoMailTried = false;
+
+/* ---------- store: db capability, local fallback ---------- */
+const Store = {
+  db: null,
+  async init(){
+    const cl = window.claude;
+    const db = cl && cl.use ? await cl.use('db') : null;
+    if (!db) { this.local(); return; }
+    this.db = db;
+    let done = false;
+    const timer = setTimeout(() => { if (!done) setBanner('저장소에 아직 연결하지 못했어요. 네트워크를 확인해주세요.'); }, 10000);
+    db.collection('items').onSnapshot(snap => {
+      if (!snap.metadata.fromCache) { done = true; clearTimeout(timer); }
+      S.items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      S.storeMode = 'db'; render();
+    }, err => {
+      done = true; clearTimeout(timer);
+      setBanner('저장소 연결이 끊겼어요 (' + esc(err.code) + '). 페이지를 다시 열어주세요.');
+    });
+    db.doc('mail/latest').onSnapshot(snap => {
+      S.mail = { ...S.mail, ...(snap.exists ? snap.data() : {}) };
+      if (!snap.metadata.fromCache) { S.mailLoaded = true; maybeAutoMail(); }
+      render();
+    }, () => { S.mailLoaded = true; });
+  },
+  async saveMail(patch){
+    S.mail = { ...S.mail, ...patch };
+    if (this.db) await this.db.doc('mail/latest').set(S.mail); else { ls.set('hub.mail', S.mail); }
+    render();
+  },
+  local(){
+    this.db = null; S.storeMode = 'local';
+    S.items = ls.get('hub.items', []);
+    S.mail = { ...S.mail, ...ls.get('hub.mail', {}) }; S.mailLoaded = true;
+    render(); maybeAutoMail();
+  },
+  saveLocal(){ ls.set('hub.items', S.items); render(); },
+  async add(data){
+    data = { ...data, createdAt: new Date().toISOString() };
+    if (this.db) { const ref = await this.db.collection('items').add(data); return ref.id; }
+    const id = 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    S.items.push({ id, ...data }); this.saveLocal(); return id;
+  },
+  async update(id, patch){
+    if (this.db) return this.db.doc('items/' + id).update(patch);
+    const it = S.items.find(x => x.id === id); if (it) Object.assign(it, patch); this.saveLocal();
+  },
+  async remove(id){
+    if (this.db) return this.db.doc('items/' + id).delete();
+    S.items = S.items.filter(x => x.id !== id); this.saveLocal();
+  }
+};
+
+/* ---------- local Korean parser (instant, fallback) ---------- */
+const PERSONAL = /(가족|엄마|어머니|아버지|아빠|부모|생일|생신|병원|치과|운동|헬스|요가|개인|집|아이|애들|와이프|아내|남편|친구|여행|휴가|결혼|장보기|이사|은행|세탁)/;
+const EVENT = /(미팅|회의|콜|통화|점심|저녁\s*약속|약속|면접|인터뷰|세미나|행사|컨퍼런스|meeting|call|sync|demo)/i;
+const NOTE = /(메모|아이디어|생각|idea|할\s*듯|일\s*듯|같음|것\s*같)/i;
+function parseLocal(raw){
+  let s = ' ' + raw.trim() + ' ';
+  const t = today0(); let date = null, time = null, m;
+  const cut = re => { s = s.replace(re, ' '); };
+  const wdIdx = c => '일월화수목금토'.indexOf(c);
+  if ((m = s.match(/(다음\s*주|담주|차주|이번\s*주|금주)\s*([월화수목금토일])(?:요일)?/))) {
+    const base = addDays(mondayOf(t), /이번|금주/.test(m[1]) ? 0 : 7);
+    date = addDays(base, (wdIdx(m[2])+6)%7); cut(m[0]);
+  } else if ((m = s.match(/([월화수목금토일])요일/))) {
+    date = addDays(t, (wdIdx(m[1]) - t.getDay() + 7) % 7); cut(m[0]);
+  } else if ((m = s.match(/(오늘|내일|모레|글피)/))) {
+    date = addDays(t, {오늘:0,내일:1,모레:2,글피:3}[m[1]]); cut(m[0]);
+  } else if ((m = s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/) || s.match(/(?:^|\s)(\d{1,2})\/(\d{1,2})(?=\s|$|까지)/))) {
+    let d = new Date(t.getFullYear(), Number(m[1])-1, Number(m[2]));
+    if (d < addDays(t, -30)) d = new Date(t.getFullYear()+1, Number(m[1])-1, Number(m[2]));
+    date = d; cut(m[0]);
+  } else if ((m = s.match(/(\d{1,2})\s*(일|주)\s*(뒤|후)/))) {
+    date = addDays(t, Number(m[1]) * (m[2]==='주'?7:1)); cut(m[0]);
+  } else if ((m = s.match(/(이번\s*주|금주|다음\s*주|담주)\s*(까지|중|내|안에)/))) {
+    date = addDays(mondayOf(t), (/다음|담주/.test(m[1]) ? 7 : 0) + 4); cut(m[0]);
+  }
+  if ((m = s.match(/(오전|오후|아침|저녁|밤)?\s*(\d{1,2})\s*시\s*(?:(\d{1,2})\s*분|(반))?/))) {
+    let h = Number(m[2]); const mi = m[4] ? 30 : Number(m[3] || 0);
+    if (/오후|저녁|밤/.test(m[1]||'') && h < 12) h += 12;
+    else if (!m[1] && h >= 1 && h <= 7) h += 12;
+    if (h <= 23) { time = `${pad(h)}:${pad(mi)}`; cut(m[0]); }
+  } else if ((m = s.match(/(\d{1,2}):(\d{2})/))) { time = `${pad(Number(m[1]))}:${m[2]}`; cut(m[0]); }
+  cut(/까지|에\s(?=\s)/g);
+  let title = s.replace(/\s+/g, ' ').replace(/^[\s,.\-·]+|[\s,.\-·]+$/g, '').replace(/^에\s/, '');
+  if (!title) title = raw.trim();
+  const people = [];
+  const pm = raw.match(/([가-힣A-Za-z]{2,12}?)(?:님|에게|한테|씨)/g) || [];
+  pm.forEach(p => { const n = p.replace(/(님|에게|한테|씨)$/, ''); if (!/^(이번|다음|오늘|내일)$/.test(n) && !people.includes(n)) people.push(n); });
+  let type = 'task';
+  if (EVENT.test(raw) && date) type = 'event';
+  else if (time && date) type = 'event';
+  else if (!date && NOTE.test(raw)) type = 'note';
+  const area = PERSONAL.test(raw) ? 'personal' : 'work';
+  const priority = /(중요|급함|급한|긴급|asap|urgent|꼭|반드시|!!)/i.test(raw) ? 'high' : 'normal';
+  title = title.replace(/(^|\s)(중요|급함|긴급|ASAP|urgent)(?=\s|$)/gi, ' ').replace(/!+/g, '').replace(/\s+/g, ' ').trim() || title;
+  const TZW = [[/(한국|서울|KST)/i,'Asia/Seoul'],[/(일본|도쿄|JST)/i,'Asia/Tokyo'],[/(중국|상하이|베이징)/,'Asia/Shanghai'],[/싱가포르/,'Asia/Singapore'],[/(뉴욕|동부|EST|EDT)/,'America/New_York'],[/(LA|서부|PST|PDT)/,'America/Los_Angeles'],[/(런던|영국)/,'Europe/London'],[/(달라스|텍사스|CST|CDT)/,'America/Chicago']];
+  let tz = null; for (const [re, z] of TZW) { if (re.test(raw) && /(시간|기준|time|[A-Z]{3})/.test(raw)) { tz = z; break; } }
+  if (tz) title = title.replace(/(한국|서울|일본|도쿄|중국|상하이|베이징|싱가포르|뉴욕|동부|LA|서부|런던|영국|달라스|텍사스)\s*(시간|기준)\s*/g, '').replace(/\b(KST|JST|EST|EDT|PST|PDT|CST|CDT)\b/g, '').replace(/\s+/g,' ').trim() || title;
+  const emails = raw.match(EMAIL_RE) || [];
+  if (emails.length) title = title.replace(EMAIL_RE, '').replace(/\s+/g,' ').trim() || title;
+  return [applyTz({ type, title, date: date ? ymd(date) : null, time: type==='event' ? time : null,
+            endTime: type==='event' && time ? addHour(time) : null, area, people, org: null, emails, tz, priority, suggested: false })];
+}
+
+/* ---------- AI ---------- */
+function knownContext(){
+  const orgs = [...new Set(S.items.map(i => i.org).filter(Boolean))].slice(0, 40);
+  const people = [...new Set(S.items.flatMap(i => i.people || []))].slice(0, 60);
+  return { orgs, people };
+}
+function todayLine(){ const t = today0(); return `${ymd(t)} (${WD[t.getDay()]}요일)`; }
+function normalize(x){
+  if (!x || typeof x !== 'object') return null;
+  const type = ['task','event','note'].includes(x.type) ? x.type : 'task';
+  const title = String(x.title || '').trim(); if (!title) return null;
+  const date = isYmd(x.date) ? x.date : null;
+  const time = isHm(x.time) ? x.time : null;
+  return { type, title, date, time: type==='event' ? time : null,
+    endTime: type==='event' ? (isHm(x.endTime) ? x.endTime : (time ? addHour(time) : null)) : null,
+    area: x.area === 'personal' ? 'personal' : 'work',
+    people: Array.isArray(x.people) ? x.people.map(String).filter(Boolean).slice(0,8) : [],
+    org: x.org ? String(x.org) : null, suggested: !!x.suggested,
+    emails: Array.isArray(x.emails) ? x.emails.map(String).filter(e => /@/.test(e)).slice(0,20) : [],
+    priority: ['high','low'].includes(x.priority) ? x.priority : 'normal',
+    tz: typeof x.tz === 'string' && /^[A-Za-z_]+\/[A-Za-z_\/]+$/.test(x.tz) ? x.tz : null };
+}
+async function aiParse(text){
+  const ctx = knownContext();
+  const prompt = `너는 GloZ 사업개발 디렉터 Sean의 개인 비서 Shine이다. 아래 입력을 일정/할 일/메모 항목으로 바꿔라.
+오늘: ${todayLine()}. 한 주는 월요일에 시작한다.
+규칙:
+- type: "task"(해야 할 일), "event"(특정 날짜·시각의 미팅이나 약속), "note"(아이디어나 기록, 행동이 아님)
+- date: "YYYY-MM-DD" 또는 null. "다음주 수요일"은 다음 주(월요일 시작)의 수요일. "까지"는 마감일. 애매하면 null.
+- time / endTime: 24시간 "HH:MM" 또는 null. 오전·오후 표시 없는 1~7시는 오후로 본다. 미팅 endTime 기본은 1시간 뒤.
+- area: "work" 또는 "personal" (가족, 건강, 개인 약속은 personal)
+- title: 날짜 표현을 뺀 짧은 한국어 제목. 행동이면 "~하기"처럼 동사로 끝낸다.
+- people: 언급된 사람 이름 배열. org: 회사·고객사·프로젝트명 또는 null.
+- 이미 아는 이름이면 같은 표기를 쓴다. 회사: ${JSON.stringify(ctx.orgs)} 사람: ${JSON.stringify(ctx.people)}
+- 한 입력에 여러 일이 있으면 여러 항목으로 나눈다.
+- 외부 미팅이면 준비 할 일 1개를 suggested:true 로 덧붙일 수 있다 (미팅 전날 마감).
+- tz: 입력에 상대 시간대가 있으면("한국시간 오후 2시", "KST", "뉴욕 기준") 그 IANA 이름(예: "Asia/Seoul"). 이때 date/time은 그 시간대 기준 그대로 적는다(변환하지 않는다). 없으면 null. Sean은 달라스(America/Chicago)에 있다.
+- emails: 입력에 있는 이메일 주소 배열 (미팅 초대용).
+- priority: "high"(중요, 급함, 꼭, 투자자·핵심 고객·계약·마감 임박), "low"(나중에, 여유 있을 때), 그 외 "normal". 제목에서 '중요' 같은 표시는 뺀다.
+JSON 배열만 답한다. 형식: [{"type":"task","title":"OOO에게 이메일 보내기","date":"2026-11-25","time":null,"endTime":null,"area":"work","people":["OOO"],"org":null,"suggested":false,"emails":[],"tz":null,"priority":"normal"}]
+
+입력: ${text}`;
+  const out = await sample.json(prompt, { modelTier: 'quick' });
+  const arr = (Array.isArray(out) ? out : [out]).map(normalize).filter(Boolean).map(applyTz);
+  if (!arr.length) throw { code: 'empty' };
+  return arr;
+}
+async function aiMeeting(text){
+  const ctx = knownContext();
+  const prompt = `너는 GloZ 사업개발 디렉터 Sean의 개인 비서 Shine이다. 아래 미팅 메모를 정리해라.
+오늘: ${todayLine()}. 한 주는 월요일에 시작한다. 이미 아는 회사: ${JSON.stringify(ctx.orgs)} 사람: ${JSON.stringify(ctx.people)}
+JSON 객체 하나만 답한다:
+{"title":"미팅 제목(회사명 포함, 20자 이내)","org":"회사명 또는 null","people":["참석자"],"area":"work 또는 personal",
+ "summary":["핵심 요약 문장", "최대 3개"],
+ "actions":[{"title":"Sean이 할 일, 동사로 끝냄","date":"YYYY-MM-DD 또는 null","owner":"Sean 또는 상대방 이름"}],
+ "next":{"title":"다음 미팅 제목","date":"YYYY-MM-DD","time":"HH:MM 또는 null"} 또는 null}
+- actions에는 메모에 근거한 후속 액션만 넣는다. 마감이 언급되지 않았으면 date는 null.
+- next는 다음 미팅 날짜가 메모에 있을 때만 채운다.
+
+미팅 메모:
+${text}`;
+  const r = await sample.json(prompt, { modelTier: 'default' });
+  if (!r || typeof r !== 'object') throw { code: 'empty' };
+  return r;
+}
+const aiErr = c => ({ not_granted:'Shine 사용이 허용되지 않아 기본 해석을 썼어요.', rate_limited:'Shine 요청이 많아요. 잠시 뒤 다시 시도해주세요.',
+  invalid_json:'Shine의 답을 읽지 못해 기본 해석을 썼어요.', cancelled:'' }[c] ?? 'Shine 해석에 실패해 기본 해석을 썼어요.');
+
+/* ---------- capture flow ---------- */
+let parseSeq = 0;
+async function runQuick(){
+  const text = $('#quick').value.trim(); if (!text) return;
+  const seq = ++parseSeq;
+  S.preview = { kind: 'line', raw: text, items: parseLocal(text), source: 'local' };
+  renderPreview();
+  if (!sample) { setStatus(S.aiReady === false ? '기본 해석 결과예요. 확인 후 등록하세요.' : ''); return; }
+  setStatus('Shine이 해석하는 중… 지금 Enter를 누르면 기본 해석으로 등록돼요.');
+  try {
+    const items = await aiParse(text);
+    if (seq !== parseSeq || !S.preview || S.preview.raw !== text) return;
+    S.preview.items = items; S.preview.source = 'ai'; renderPreview(); setStatus('Shine 해석 완료. Enter로 등록하세요.');
+  } catch (e) {
+    if (seq !== parseSeq) return;
+    setStatus(aiErr(e && e.code), e && e.code !== 'cancelled');
+  }
+}
+async function runMeeting(){
+  const text = $('#meeting').value.trim(); if (!text) return;
+  if (!sample) { setStatus('Shine을 쓸 수 없는 환경이라 메모로만 저장할 수 있어요.', true);
+    S.preview = { kind:'meeting', raw:text, meeting:{ title: text.split('\n')[0].slice(0,30), summary:[], actions:[], next:null, people:[], org:null, area:'work' } };
+    renderPreview(); return; }
+  const btn = $('#meet-go'); btn.disabled = true; setStatus('Shine이 미팅 메모를 정리하는 중… (10~40초)');
+  try {
+    const r = await aiMeeting(text);
+    const actions = (Array.isArray(r.actions) ? r.actions : []).map(a => ({
+      title: String(a.title||'').trim(), date: isYmd(a.date) ? a.date : null,
+      owner: a.owner ? String(a.owner) : 'Sean', checked: !a.owner || /sean|나|본인/i.test(String(a.owner)) })).filter(a => a.title);
+    const next = r.next && isYmd(r.next.date) ? { title: String(r.next.title || '후속 미팅'), date: r.next.date, time: isHm(r.next.time) ? r.next.time : null, checked: true } : null;
+    S.preview = { kind:'meeting', raw:text, meeting:{
+      title: String(r.title || '미팅 메모'), org: r.org ? String(r.org) : null,
+      people: Array.isArray(r.people) ? r.people.map(String) : [], area: r.area === 'personal' ? 'personal' : 'work',
+      summary: Array.isArray(r.summary) ? r.summary.map(String).slice(0,3) : [], actions, next } };
+    renderPreview(); setStatus('정리 완료. 등록할 항목만 체크하세요.');
+  } catch (e) { setStatus(e && e.code === 'not_granted' ? 'Shine 사용이 허용되지 않았어요.' : 'Shine 정리에 실패했어요. 다시 시도해주세요.', true); }
+  finally { btn.disabled = false; }
+}
+function readPreviewEdits(){
+  if (!S.preview || S.preview.kind !== 'line') return;
+  S.preview.items.forEach((it, i) => {
+    const g = id => document.getElementById(id + '-' + i);
+    if (!g('pv-title')) return;
+    it.on = g('pv-on').checked; it.title = g('pv-title').value.trim() || it.title;
+    it.type = g('pv-type').value; it.date = g('pv-date').value || null;
+    it.time = it.type === 'event' ? (g('pv-time').value || null) : null;
+    if (it.type === 'event' && it.time && !it.endTime) it.endTime = addHour(it.time);
+    it.area = g('pv-area').value; it.priority = g('pv-prio').value;
+    if (it.tz && (it.date !== it._d0 || it.time !== it._t0)) { /* edited by hand: local time wins */ }
+    const gc = g('pv-gc'); if (gc) { it.gc = gc.checked && it.type === 'event'; it.meet = g('pv-meet').checked; it.emails = (g('pv-att').value.match(EMAIL_RE) || []); }
+  });
+}
+function commitLabel(){
+  const b = document.getElementById('pv-commit'); if (!b || !S.preview || S.preview.kind !== 'line') return;
+  let invite = 0, cal = 0;
+  S.preview.items.forEach((_, i) => { const gc = document.getElementById('pv-gc-' + i), on = document.getElementById('pv-on-' + i);
+    if (gc && gc.checked && on && on.checked && document.getElementById('pv-type-' + i).value === 'event') { cal++; invite += ((document.getElementById('pv-att-' + i).value.match(EMAIL_RE) || []).length); } });
+  b.textContent = invite ? `등록 + 초대 ${invite}명 발송` : cal ? '등록 + 캘린더 생성' : '등록 (Enter)';
+}
+async function commitPreview(){
+  const P = S.preview; if (!P) return;
+  parseSeq++;
+  let n = 0; const gcMsgs = [];
+  if (P.kind === 'line') {
+    readPreviewEdits();
+    for (const it of P.items) {
+      if (it.on === false || (it.on === undefined && it.suggested)) continue;
+      const { suggested, on, gc, meet, emails, _d0, _t0, ...rest } = it;
+      const data = { ...rest, attendees: emails || [], status: 'open', source: P.source === 'ai' ? 'Shine 해석' : '빠른 입력', raw: P.raw, notes: '', links: [] };
+      if (!data.tz) { delete data.tz; delete data.tzDate; delete data.tzTime; }
+      const id = await Store.add(data); n++;
+      if (gc && mcp) { const msg = await createGcal(id, data, emails || [], meet); gcMsgs.push(msg); }
+    }
+    $('#quick').value = '';
+  } else {
+    const M = P.meeting, dlg = document.getElementById('pv-mtitle');
+    const title = dlg ? dlg.value.trim() || M.title : M.title;
+    const noteId = await Store.add({ type:'note', title, area:M.area, date: ymd(today0()), time:null, endTime:null, status:'open',
+      people:M.people, org:M.org, notes: (M.summary.length ? M.summary.map(s => '• ' + s).join('\n') + '\n\n' : '') + '— 원문 —\n' + P.raw,
+      source:'미팅 메모', raw:'', links:[] }); n++;
+    for (let i = 0; i < M.actions.length; i++) {
+      const a = M.actions[i]; const box = document.getElementById('pv-act-' + i);
+      if (box ? !box.checked : !a.checked) continue;
+      const d = document.getElementById('pv-actdate-' + i);
+      await Store.add({ type:'task', title:a.title, area:M.area, date: d && d.value ? d.value : a.date, time:null, endTime:null, status:'open',
+        people:M.people, org:M.org, notes:'', source:'미팅 메모', raw:'', links:[noteId] }); n++;
+    }
+    const nb = document.getElementById('pv-next');
+    if (M.next && (nb ? nb.checked : M.next.checked)) {
+      await Store.add({ type:'event', title:M.next.title, area:M.area, date:M.next.date, time:M.next.time, endTime: M.next.time ? addHour(M.next.time) : null,
+        status:'open', people:M.people, org:M.org, notes:'', source:'미팅 메모', raw:'', links:[noteId] }); n++;
+    }
+    $('#meeting').value = '';
+  }
+  S.preview = null; renderPreview();
+  const gcFail = gcMsgs.find(m => !m.ok);
+  setStatus((n ? `${n}개 항목을 등록했어요.` : '등록할 항목을 선택하지 않았어요.') + gcMsgs.map(m => ' ' + m.text).join(''), !!gcFail);
+}
+
+function renderPreview(){
+  const box = $('#preview'); const P = S.preview;
+  if (!P) { box.innerHTML = ''; return; }
+  if (P.kind === 'line') {
+    box.innerHTML = P.items.map((it, i) => `
+      <div class="pv ${it.area}">
+        <input type="checkbox" id="pv-on-${i}" aria-label="등록" ${it.on === false || (it.on === undefined && it.suggested) ? '' : 'checked'} style="margin-top:8px">
+        <div class="pv-fields">
+          <select id="pv-type-${i}" aria-label="종류"><option value="task" ${it.type==='task'?'selected':''}>할 일</option><option value="event" ${it.type==='event'?'selected':''}>일정</option><option value="note" ${it.type==='note'?'selected':''}>메모</option></select>
+          <input class="t" id="pv-title-${i}" value="${esc(it.title)}" aria-label="제목">
+          <input type="date" id="pv-date-${i}" value="${it.date || ''}" aria-label="날짜">
+          <input type="time" id="pv-time-${i}" value="${it.time || ''}" aria-label="시간" ${it.type==='event'?'':'hidden'}>
+          <select id="pv-area-${i}" aria-label="구분"><option value="work" ${it.area==='work'?'selected':''}>업무</option><option value="personal" ${it.area==='personal'?'selected':''}>개인</option></select>
+          <select id="pv-prio-${i}" aria-label="중요도"><option value="high" ${it.priority==='high'?'selected':''}>★ 중요</option><option value="normal" ${!it.priority||it.priority==='normal'?'selected':''}>보통</option><option value="low" ${it.priority==='low'?'selected':''}>낮음</option></select>
+          ${it.suggested ? '<span class="tag">Shine 제안</span>' : ''}
+          ${it.people && it.people.length ? `<span class="tag">${esc(it.people.join(', '))}</span>` : ''}
+          ${it.org ? `<span class="tag">${esc(it.org)}</span>` : ''}
+          ${it.date ? `<span class="tag num">${fmtDate(it.date)}</span>` : ''}
+          ${it.tz ? `<span class="tzline num" style="flex-basis:100%">${esc(tzNote(it))}</span>` : ''}
+          ${it.type === 'event' && mcp ? `<div class="pv-gcal" id="pv-gcwrap-${i}">
+            <label><input type="checkbox" id="pv-gc-${i}" ${it.gc ?? (it.emails && it.emails.length) ? 'checked' : ''}>Google 캘린더에 생성</label>
+            <label><input type="checkbox" id="pv-meet-${i}" ${it.meet ?? (/(화상|온라인|zoom|meet|video|콜|call|원격)/i.test(P.raw) || (it.emails && it.emails.length)) ? 'checked' : ''}>Google Meet</label>
+            <input type="text" id="pv-att-${i}" value="${esc((it.emails || []).join(', '))}" placeholder="초대할 이메일 (쉼표로 구분)" aria-label="초대할 이메일">
+          </div>` : ''}
+        </div>
+      </div>`).join('') + `
+      <div class="pv-actions"><span class="note">${P.source === 'ai' ? 'Shine 해석' : '기본 해석'} · 내용을 고친 뒤 등록할 수 있어요</span>
+        <button class="btn" data-act="pv-cancel">취소</button><button class="btn primary" data-act="pv-commit" id="pv-commit">등록 (Enter)</button></div>`;
+    box.querySelectorAll('select[id^="pv-type-"]').forEach(sel => sel.addEventListener('change', () => {
+      const i = sel.id.split('-').pop(); document.getElementById('pv-time-' + i).hidden = sel.value !== 'event';
+      const g = document.getElementById('pv-gcwrap-' + i); if (g) g.hidden = sel.value !== 'event';
+    }));
+    box.addEventListener('input', commitLabel); box.addEventListener('change', commitLabel); commitLabel();
+  } else {
+    const M = P.meeting;
+    box.innerHTML = `
+      <div class="pv ${M.area}"><span></span><div class="pv-fields" style="flex-direction:column;align-items:stretch;gap:8px">
+        <input class="t" id="pv-mtitle" value="${esc(M.title)}" aria-label="미팅 제목">
+        ${M.summary.length ? `<div>${M.summary.map(s => `<div>• ${esc(s)}</div>`).join('')}</div>` : ''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${M.org ? `<span class="tag">${esc(M.org)}</span>` : ''}${M.people.length ? `<span class="tag">${esc(M.people.join(', '))}</span>` : ''}<span class="tag">메모로 저장됨</span></div>
+      </div></div>
+      ${M.actions.map((a, i) => `
+        <div class="pv ${M.area}"><input type="checkbox" id="pv-act-${i}" ${a.checked ? 'checked' : ''} aria-label="할 일 등록" style="margin-top:8px">
+          <div class="pv-fields"><span class="tag">할 일</span><span class="t">${esc(a.title)}</span>
+            <input type="date" id="pv-actdate-${i}" value="${a.date || ''}" aria-label="마감일">
+            ${a.owner && !/sean/i.test(a.owner) ? `<span class="tag">담당: ${esc(a.owner)}</span>` : ''}</div></div>`).join('')}
+      ${M.next ? `<div class="pv ${M.area}"><input type="checkbox" id="pv-next" ${M.next.checked ? 'checked' : ''} aria-label="다음 미팅 등록" style="margin-top:8px">
+          <div class="pv-fields"><span class="tag">다음 미팅</span><span class="t">${esc(M.next.title)}</span><span class="tag num">${fmtDate(M.next.date)}${M.next.time ? ' ' + M.next.time : ''}</span></div></div>` : ''}
+      <div class="pv-actions"><span class="note">체크한 항목만 등록돼요. 원문은 메모에 함께 저장돼요.</span>
+        <button class="btn" data-act="pv-cancel">취소</button><button class="btn primary" data-act="pv-commit">등록</button></div>`;
+  }
+}
+function setStatus(msg, err){ const s = $('#status'); s.textContent = msg || ''; s.classList.toggle('err', !!err); }
+function setBanner(html){ $('#banner').innerHTML = html ? `<div class="banner">${html}</div>` : ''; }
+
+/* ---------- Google Calendar ---------- */
+const mcpErr = (e, server) => ({
+  server_not_connected: `${server} 커넥터가 연결되어 있지 않아요. claude.ai 설정 → 커넥터에서 추가해주세요.`,
+  needs_reauth: `${server} 연결이 만료됐어요. claude.ai 설정 → 커넥터에서 다시 연결해주세요.`,
+  selection_required: `${server} 계정을 선택해야 해요. 화면의 안내에서 계정을 골라주세요.`,
+  not_in_manifest: `${server} 사용이 허용되지 않았어요. 페이지 메뉴의 권한에서 허용해주세요.`,
+  approval_required: `${server} 사용 승인이 필요해요. 다시 눌러 허용해주세요.`,
+  blocked_by_policy: `조직 정책으로 ${server}를 쓸 수 없어요.`,
+  not_granted: `이 화면에서는 ${server}를 쓸 수 없어요. claude.ai에서 열어주세요.`,
+  capability_disabled: `이 화면에서는 ${server}를 쓸 수 없어요. claude.ai에서 열어주세요.`,
+  tool_error: `${server}에서 오류가 났어요: ${String((e && e.message) || '').slice(0, 120)}`,
+}[e && e.code] || null);
+async function createGcal(id, it, attendees, meet){
+  const tz = it.tz || LTZ, ds = it.tz ? it.tzDate : it.date, ts = it.tz ? it.tzTime : it.time;
+  if (!ds || !ts) return { ok: false, text: 'Google 캘린더: 날짜와 시간이 있어야 만들 수 있어요.' };
+  const start = wallToUtc(ds, ts, tz);
+  let dur = 60;
+  if (it.time && it.endTime && it.endTime > it.time) { const [a,b] = it.time.split(':').map(Number), [c,d] = it.endTime.split(':').map(Number); dur = (c*60+d) - (a*60+b); }
+  const end = utcToTz(start + dur * 60000, tz);
+  const input = { summary: it.title, startTime: `${ds}T${ts}:00`, endTime: `${end.date}T${end.time}:00`, timeZone: tz,
+    addGoogleMeetUrl: !!meet, description: 'Shine에서 생성' + (it.tz ? `\n${tzNote(it)}` : '') + (it.notes ? '\n\n' + it.notes : '') };
+  if (attendees.length) input.attendees = attendees.map(email => ({ email }));
+  try {
+    const r = await mcp.callTool('Google Calendar', 'create_event', input, { cache: false });
+    const js = JSON.stringify(r.payload ?? r.content ?? '');
+    const meetUrl = (js.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i) || [])[0] || null;
+    const link = (js.match(/https:\/\/www\.google\.com\/calendar\/event\?eid=[^"\\\s]+/) || [])[0] || null;
+    await Store.update(id, { gcal: { created: true, link, meet: meetUrl, attendees, tz, at: new Date().toISOString() }, attendees });
+    return { ok: true, text: `Google 캘린더에 생성했어요${attendees.length ? ` · 초대 ${attendees.length}명 발송` : ''}${meetUrl ? ' · Meet 링크 추가' : ''}.` };
+  } catch (e) {
+    const known = mcpErr(e, 'Google Calendar');
+    return { ok: false, text: known || 'Google 캘린더 생성 여부를 확인하지 못했어요. 캘린더에서 직접 확인한 뒤 다시 시도해주세요.' };
+  }
+}
+
+/* ---------- mail briefing ---------- */
+function slimThread(t){
+  const m = (t.messages || [])[t.messages ? t.messages.length - 1 : 0] || {};
+  const nm = (m.addressDisplayNames || [])[0];
+  return { id: t.id, n: t.messageCount || 1, from: m.sender || '', name: nm ? decodeHtml(nm.displayName) : '', to: m.toRecipients || [], cc: m.ccRecipients || [],
+    subject: decodeHtml(m.subject || '(제목 없음)'), snippet: decodeHtml(m.snippet || '').slice(0, 280), date: m.date || '',
+    unread: (m.labelIds || []).includes('UNREAD'), url: t.viewUrl || m.viewUrl || '' };
+}
+async function checkMail(auto){
+  if (S.mailBusy) return;
+  if (!mcp || !sample) { S.mailErr = '메일 확인은 claude.ai에서 열었을 때만 쓸 수 있어요.'; render(); return; }
+  S.mailBusy = true; S.mailErr = ''; render();
+  try {
+    const call = q => mcp.callTool('Gmail', 'search_threads', { query: q, pageSize: 30, view: 'THREAD_VIEW_SUMMARY' }, { cache: false }).then(r => ((r.payload || {}).threads || []).map(slimThread));
+    const [inbox, sent] = await Promise.all([
+      call('in:inbox newer_than:4d -category:promotions -category:social'),
+      call('in:sent newer_than:10d older_than:2d')]);
+    const counts = {}; sent.forEach(t => { counts[t.from] = (counts[t.from] || 0) + 1; });
+    const me = Object.keys(counts).sort((a,b) => counts[b] - counts[a])[0] || '';
+    const waiting = sent.filter(t => me && t.from === me);
+    const skip = new Set(S.mail.dismissed || []);
+    const pool = [...inbox, ...waiting].filter(t => !skip.has(t.id));
+    if (!pool.length) { await Store.saveMail({ checkedAt: new Date().toISOString(), checkedDay: ymd(today0()), results: [] }); return; }
+    const fmt = t => `- id:${t.id} | 보낸이:${t.name ? t.name + ' ' : ''}<${t.from}> | 받는이:${t.to.join(', ')} | 제목:${t.subject} | 날짜:${t.date} | 메시지수:${t.n}${t.unread ? ' | 안읽음' : ''}\n  미리보기:${t.snippet}`;
+    const prompt = `너는 GloZ Inc. 사업개발 디렉터 Sean Park의 비서 Shine이다. 아래 메일 목록에서 Sean이 놓치면 안 되는 것만 골라라.
+오늘: ${todayLine()} (Sean은 달라스, America/Chicago). Sean의 업무 주소: ${me || '알 수 없음'}. 개인 메일 주소: ${S.mail.personalEmail || '없음'} (이 주소로 온 메일은 area "personal").
+분류:
+- reply: Sean의 답변, 결정, 자료가 필요한 메일
+- followup: Sean이 마지막으로 보냈는데 2일 넘게 답이 없어 다시 챙겨야 할 스레드
+- deadline: 마감, 일정, 기한이 걸린 요청
+제외: 뉴스레터, 광고, 자동 알림, 대량 발송, GloZ와 관련 없는 콜드 영업 메일 (잠재 고객이나 파트너의 실제 문의는 포함).
+JSON 배열만 답한다. 없으면 []. 형식:
+[{"id":"스레드 id","kind":"reply","priority":"high","why":"한 줄 이유","action":"할 일 제목, 동사로 끝냄","due":"YYYY-MM-DD 또는 null","area":"work"}]
+
+[받은 메일]
+${inbox.filter(t => !skip.has(t.id)).map(fmt).join('\n') || '없음'}
+
+[Sean이 보내고 답을 기다리는 스레드]
+${waiting.filter(t => !skip.has(t.id)).map(fmt).join('\n') || '없음'}`;
+    const out = await sample.json(prompt, { modelTier: 'default', cache: false });
+    const byId = new Map(pool.map(t => [t.id, t]));
+    const results = (Array.isArray(out) ? out : []).filter(r => r && byId.has(r.id)).map(r => { const t = byId.get(r.id); return {
+      id: t.id, kind: ['reply','followup','deadline'].includes(r.kind) ? r.kind : 'reply', priority: r.priority === 'high' ? 'high' : 'normal',
+      why: String(r.why || '').slice(0, 200), action: String(r.action || t.subject).slice(0, 120), due: isYmd(r.due) ? r.due : null,
+      area: r.area === 'personal' ? 'personal' : 'work', subject: t.subject, from: t.name || t.from, url: t.url }; })
+      .sort((a,b) => (a.priority === 'high' ? 0 : 1) - (b.priority === 'high' ? 0 : 1));
+    await Store.saveMail({ checkedAt: new Date().toISOString(), checkedDay: ymd(today0()), results });
+  } catch (e) {
+    const known = e && (mcpErr(e, 'Gmail'));
+    S.mailErr = known || (e && e.code === 'not_granted' ? 'Shine 사용이 허용되지 않았어요.' : e && e.code === 'invalid_json' ? 'Shine이 메일 정리 결과를 제대로 만들지 못했어요. 다시 확인해주세요.' : '메일을 확인하지 못했어요. 잠시 뒤 다시 시도해주세요.');
+  } finally { S.mailBusy = false; render(); }
+}
+function maybeAutoMail(){
+  if (autoMailTried || !mcp || !sample || !S.mailLoaded) return;
+  if (S.mail.checkedDay === ymd(today0()) || new Date().getHours() < 5) return;
+  autoMailTried = true; checkMail(true);
+}
+async function mailToTask(tid){
+  const r = (S.mail.results || []).find(x => x.id === tid); if (!r) return;
+  await Store.add({ type: 'task', title: r.action, area: r.area, date: r.due, time: null, endTime: null, status: 'open', people: [], org: null,
+    notes: `메일: ${r.subject}\n보낸 사람: ${r.from}\n${r.why}`, mailUrl: r.url, source: '메일 브리핑', raw: '', links: [] });
+  await Store.saveMail({ dismissed: [...(S.mail.dismissed || []), tid].slice(-300), results: S.mail.results.filter(x => x.id !== tid) });
+  setStatus('메일을 할 일로 등록했어요.');
+}
+async function mailSkip(tid){
+  await Store.saveMail({ dismissed: [...(S.mail.dismissed || []), tid].slice(-300), results: (S.mail.results || []).filter(x => x.id !== tid) });
+}
+function mailPanel(){
+  const res = (S.mail.results || []).filter(r => S.filter === 'all' || r.area === S.filter);
+  const shown = S.mailMore ? res : res.slice(0, 4);
+  const KIND = { reply: '답장', followup: '후속', deadline: '마감' };
+  const when = S.mail.checkedAt ? (() => { const d = new Date(S.mail.checkedAt); return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())} 확인`; })() : '아직 확인 전';
+  return `<section class="panel mail"><h2><span>메일 브리핑${res.length ? ` <span class="num" style="color:var(--muted);font-weight:500">${res.length}</span>` : ''}</span>
+      <span class="h-actions"><span class="num">${S.mailBusy ? '확인 중…' : when}</span><button class="btn sm" data-act="mail-check" ${S.mailBusy ? 'disabled' : ''}>지금 확인</button></span></h2>
+    ${S.mailErr ? `<div class="err-line">${esc(S.mailErr)}</div>` : ''}
+    ${S.mailBusy && !res.length ? '<div class="empty">Shine이 최근 메일을 읽고 있어요… (20~60초)</div>' : ''}
+    ${!S.mailBusy && S.mail.checkedAt && !res.length && !S.mailErr ? '<div class="empty">지금 챙길 메일이 없어요.</div>' : ''}
+    ${!S.mail.checkedAt && !S.mailBusy && !S.mailErr ? '<div class="empty">매일 아침 첫 접속 때 자동으로 확인해요. 지금 보려면 "지금 확인"을 누르세요.</div>' : ''}
+    ${shown.map(r => `<div class="mrow"><span class="mtag ${r.priority === 'high' ? 'high' : ''}">${KIND[r.kind]}</span>
+      <div class="mrow-main"><b>${esc(r.subject)}</b><span class="meta"><span>${esc(r.from)}</span>${r.due ? `<span class="num">${fmtDate(r.due)}</span>` : ''}${r.area === 'personal' ? '<span>개인</span>' : ''}</span><span class="meta">${esc(r.why)}</span></div>
+      <div class="mrow-act"><button class="btn sm" data-act="mail-task" data-tid="${esc(r.id)}">할 일로</button>${r.url ? `<a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">열기</a>` : ''}<button class="btn sm" data-act="mail-skip" data-tid="${esc(r.id)}" aria-label="넘기기">✕</button></div></div>`).join('')}
+    ${res.length > 4 ? `<button class="btn sm" data-act="mail-more" style="align-self:flex-start;margin-top:4px">${S.mailMore ? '접기' : `${res.length - 4}개 더 보기`}</button>` : ''}
+    <details><summary>개인 메일 연결</summary>
+      <div>개인 Gmail을 업무 Gmail로 자동 전달해두면 함께 확인해요. 전달받는 개인 주소를 적어두면 개인으로 분류해요.</div>
+      <div class="set-row"><input id="set-pemail" type="email" value="${esc(S.mail.personalEmail || '')}" placeholder="개인 메일 주소" aria-label="개인 메일 주소"><button class="btn sm" data-act="save-pemail">저장</button></div>
+    </details>
+  </section>`;
+}
+
+/* ---------- selectors ---------- */
+const visible = () => S.items.filter(i => S.filter === 'all' || i.area === S.filter);
+const byTime = (a, b) => (a.date||'9999').localeCompare(b.date||'9999') || (a.time||'99').localeCompare(b.time||'99') || (a.createdAt||'').localeCompare(b.createdAt||'');
+function taskGroups(list){
+  const t = ymd(today0()), we = ymd(addDays(mondayOf(today0()), 6));
+  const pr = i => i.priority === 'high' ? 0 : i.priority === 'low' ? 2 : 1;
+  const open = list.filter(i => i.type === 'task' && i.status !== 'done').sort((a,b) => pr(a) - pr(b) || byTime(a,b));
+  return {
+    overdue: open.filter(i => i.date && i.date < t),
+    today: open.filter(i => i.date === t),
+    week: open.filter(i => i.date && i.date > t && i.date <= we),
+    later: open.filter(i => i.date && i.date > we),
+    nodate: open.filter(i => !i.date),
+  };
+}
+
+/* ---------- row templates ---------- */
+function rowHtml(it, opts = {}){
+  const t = ymd(today0());
+  const late = it.type === 'task' && it.status !== 'done' && it.date && it.date < t;
+  const lead = it.type === 'task'
+    ? `<button class="check" data-act="toggle" data-id="${esc(it.id)}" aria-label="${it.status==='done'?'완료 취소':'완료로 표시'}"></button>`
+    : `<span class="kind">${it.type === 'event' ? (it.time || '종일') : '메모'}</span>`;
+  const meta = [];
+  if (opts.showDate !== false && it.date) meta.push(`<span class="num ${late ? 'late' : ''}">${late ? '지남 · ' : ''}${fmtDate(it.date)}</span>`);
+  if (it.org) meta.push(`<span>${esc(it.org)}</span>`);
+  if (it.tz) meta.push(`<span>${esc(tzName(it.tz))} ${esc(it.tzTime)}</span>`);
+  if (it.gcal && it.gcal.created) meta.push('<span>Google 캘린더</span>');
+  if (it.mailUrl) meta.push('<span>메일</span>');
+  if (it.people && it.people.length) meta.push(`<span>${esc(it.people.join(', '))}</span>`);
+  if (it.example) meta.push('<span>예시</span>');
+  const hi = it.priority === 'high';
+  return `<div class="row ${it.area} ${it.status==='done'?'done':''} ${it.priority === 'low' ? 'low' : ''}">${lead}
+    <button class="row-main" data-act="open" data-id="${esc(it.id)}"><span class="title-line">${hi && !opts.noBadge ? '<span class="prio">중요</span>' : ''}<span class="title">${esc(it.title)}</span></span>${meta.length ? `<span class="meta">${meta.join('')}</span>` : ''}</button>
+    ${it.type !== 'note' && it.status !== 'done' ? `<button class="star ${hi ? 'on' : ''}" data-act="star" data-id="${esc(it.id)}" aria-label="${hi ? '중요 해제' : '중요로 표시'}" aria-pressed="${hi}"><svg width="16" height="16" viewBox="0 0 24 24" fill="${hi ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></button>` : ''}</div>`;
+}
+const group = (label, list, cls = '', opts) => list.length ? `<div class="group-label ${cls}">${label} <span class="num">${list.length}</span></div>${list.map(i => rowHtml(i, opts)).join('')}` : '';
+
+/* ---------- views ---------- */
+const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60 + m; };
+const isPhone = () => window.matchMedia('(max-width:699px)').matches;
+function hourPx(){ const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour')); return v > 0 ? v : 54; }
+const spanOf = e => { const s0 = toMin(e.time), e0 = e.endTime && toMin(e.endTime) > s0 ? toMin(e.endTime) : s0 + 60; return [s0, e0]; };
+function layoutLanes(evts){
+  const sorted = [...evts].sort((a,b) => toMin(a.time) - toMin(b.time));
+  const placed = []; let cluster = [], cEnd = -1;
+  const flush = () => { const lanes = []; cluster.forEach(p => { let l = lanes.findIndex(x => x <= p.a); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = p.b; p.lane = l; }); cluster.forEach(p => p.n = lanes.length); cluster = []; };
+  sorted.forEach(e => { const [a,b] = spanOf(e); if (a >= cEnd) { flush(); cEnd = -1; } const p = { e, a, b }; cluster.push(p); placed.push(p); cEnd = Math.max(cEnd, b); });
+  flush(); return placed;
+}
+function hourRange(evts, withNow){
+  const nowMin = new Date().getHours()*60 + new Date().getMinutes();
+  let start = 8*60, end = 19*60;
+  evts.forEach(e => { const [a,b] = spanOf(e); start = Math.min(start, Math.floor(a/60)*60); end = Math.max(end, Math.ceil(b/60)*60); });
+  if (withNow) { start = Math.min(start, Math.floor(nowMin/60)*60); end = Math.max(end, Math.min(1440, Math.ceil((nowMin+1)/60)*60)); }
+  return [start, Math.min(end, 1440), nowMin];
+}
+function evBlock(p, y, past, compact){
+  const h = Math.max(compact ? 22 : 26, y(p.b) - y(p.a) - 3), e = p.e;
+  return `<button class="ev ${e.area} ${past ? 'past' : ''} ${h < 44 ? 'short' : ''}" data-act="open" data-id="${esc(e.id)}" title="${esc(e.time + ' ' + e.title)}"
+    style="top:${y(p.a)+1}px;height:${h}px;left:calc(${p.lane} * 100% / ${p.n});width:calc(100% / ${p.n} - 3px)">
+    <span class="tm">${e.time}${!compact && e.endTime ? '–' + e.endTime : ''}</span><span>${esc(e.title)}</span>${!compact && h >= 60 && (e.org || e.tz) ? `<span class="sub">${esc([e.org, e.tz ? tzName(e.tz) + ' ' + e.tzTime : ''].filter(Boolean).join(' · '))}</span>` : ''}</button>`;
+}
+function hourLines(start, end, y){ let s = ''; for (let m = start; m <= end; m += 60) s += `<div class="hr" style="top:${y(m)}px"><span>${pad(Math.floor(m/60) % 24)}</span></div>`; return s; }
+function timeline(evts, isToday){
+  const H = hourPx(), [start, end, nowMin] = hourRange(evts, isToday), y = m => (m - start) / 60 * H;
+  const blocks = layoutLanes(evts).map(p => evBlock(p, y, isToday && p.b <= nowMin, false)).join('');
+  const now = new Date();
+  const nowl = isToday && nowMin >= start && nowMin <= end ? `<div class="nowline" id="nowline" style="top:${y(nowMin)}px"><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>` : '';
+  return `<div class="tl" id="tl" data-start="${start}" style="height:${y(end)+8}px">${hourLines(start, end, y)}<div class="tl-evts">${blocks}</div>${nowl}${evts.length ? '' : '<div class="tl-empty">시간이 정해진 일정이 없어요</div>'}</div>`;
+}
+function dayItems(list, ds){
+  const evs = list.filter(i => i.type === 'event' && i.date === ds);
+  return { timed: evs.filter(e => e.time).sort(byTime), untimed: evs.filter(e => !e.time),
+           due: list.filter(i => i.type === 'task' && i.date === ds && i.status !== 'done') };
+}
+function weekGrid(list, mon){
+  const t = ymd(today0()), days = Array.from({length:7}, (_, k) => addDays(mon, k));
+  if (isPhone()) return `<div class="agenda">${days.map(d => { const s = ymd(d), its = itemsOn(list, s);
+    return `<div class="ag-day ${s===t?'today':''}"><button class="ag-h" data-act="flow-day" data-d="${s}">${WD[d.getDay()]}<b>${d.getMonth()+1}/${d.getDate()}</b></button>
+      <div class="ag-items">${its.length ? its.map(chipHtml).join('') : '<span class="ag-none">비어 있음</span>'}</div></div>`; }).join('')}</div>`;
+  const per = days.map(d => dayItems(list, ymd(d)));
+  const all = per.flatMap(p => p.timed), H = hourPx() * 0.82, tIdx = days.findIndex(d => ymd(d) === t);
+  const [start, end, nowMin] = hourRange(all, tIdx >= 0), y = m => (m - start) / 60 * H;
+  const hasAd = per.some(p => p.untimed.length || p.due.length);
+  return `<div class="wk">
+    <div class="wk-row"><span></span>${days.map(d => `<button class="wk-dh ${ymd(d)===t?'today':''}" data-act="flow-day" data-d="${ymd(d)}">${WD[d.getDay()]}<b>${d.getDate()}</b></button>`).join('')}</div>
+    ${hasAd ? `<div class="wk-row"><span class="wk-gut">종일</span>${per.map(p => `<div class="wk-ad">${[...p.untimed, ...p.due].slice(0,3).map(chipHtml).join('')}${p.untimed.length + p.due.length > 3 ? `<span class="more">+${p.untimed.length + p.due.length - 3}</span>` : ''}</div>`).join('')}</div>` : ''}
+    <div class="wk-body" id="tl" data-start="${start}" data-scale=".82" style="height:${y(end)+8}px">${hourLines(start, end, y)}
+      <div class="wk-cols">${per.map((p, k) => `<div class="wk-col ${k===tIdx?'today':''}">${layoutLanes(p.timed).map(q => evBlock(q, y, k < tIdx || (k === tIdx && q.b <= nowMin), true)).join('')}${k===tIdx && nowMin >= start && nowMin <= end ? `<div class="nowline" id="nowline" style="top:${y(nowMin)}px"><span></span></div>` : ''}</div>`).join('')}</div>
+    </div></div>`;
+}
+function monthGrid(list, A){
+  const t = ymd(today0()), first = new Date(A.getFullYear(), A.getMonth(), 1), start = mondayOf(first);
+  const last = new Date(A.getFullYear(), A.getMonth()+1, 0), weeks = Math.ceil((((last - start) / 864e5) + 1) / 7);
+  const cap = S.flowMode === 'month' && !isPhone() ? 3 : 2;
+  return `<div class="month">${['월','화','수','목','금','토','일'].map(w => `<div class="wd">${w}</div>`).join('')}
+    ${Array.from({length: weeks*7}, (_, k) => { const d = addDays(start, k), s = ymd(d), its = itemsOn(list, s);
+      return `<div class="mcell ${d.getMonth()!==A.getMonth()?'out':''} ${s===t?'today':''}" data-act="flow-day" data-d="${s}" role="button" tabindex="0" aria-label="${fmtDate(s)} 보기">
+        <span class="mnum">${d.getDate()}</span>${its.slice(0,cap).map(chipHtml).join('')}${its.length>cap?`<span class="more">+${its.length-cap}</span>`:''}</div>`; }).join('')}</div>`;
+}
+function flowPanel(){
+  const list = visible(), t = ymd(today0()), D = S.flowDate, M = S.flowMode;
+  let title, body;
+  if (M === 'day') {
+    const ds = ymd(D), { timed, untimed, due } = dayItems(list, ds);
+    title = ds === t ? '오늘의 흐름' : `${D.getMonth()+1}월 ${D.getDate()}일 ${WD[D.getDay()]}요일`;
+    const upcoming = ds === t ? list.filter(i => i.type === 'event' && i.date > t && i.date <= ymd(addDays(today0(), 7))).sort(byTime) : [];
+    body = `${untimed.length || due.length ? `<div class="allday">${untimed.map(chipHtml).join('')}${due.map(chipHtml).join('')}</div>` : ''}${timeline(timed, ds === t)}
+      ${upcoming.length ? `<div class="group-label">다가오는 7일 <span class="num">${upcoming.length}</span></div>${upcoming.map(i => rowHtml(i)).join('')}` : ''}`;
+  } else if (M === 'week') {
+    const mon = mondayOf(D), sun = addDays(mon, 6);
+    title = `${mon.getMonth()+1}월 ${mon.getDate()}일 – ${sun.getMonth() !== mon.getMonth() ? (sun.getMonth()+1) + '월 ' : ''}${sun.getDate()}일`;
+    body = weekGrid(list, mon);
+  } else { title = `${D.getFullYear()}년 ${D.getMonth()+1}월`; body = monthGrid(list, D); }
+  return `<section class="tile flow"><div class="flow-head"><h2>${title}</h2><div class="flow-ctl">
+      <div class="seg" role="group" aria-label="보기 단위">${['day','week','month'].map((m, k) => `<button data-act="flow-mode" data-v="${m}" aria-pressed="${M===m}">${['일','주','월'][k]}</button>`).join('')}</div>
+      <div class="nav"><button class="icon-btn" data-act="flow-prev" aria-label="이전">‹</button><button class="btn sm" data-act="flow-today">오늘</button><button class="icon-btn" data-act="flow-next" aria-label="다음">›</button></div>
+    </div></div>${body}</section>`;
+}
+function nextEvent(){
+  const list = visible(), t = ymd(today0()), nowMin = new Date().getHours()*60 + new Date().getMinutes();
+  return list.filter(i => i.type === 'event' && i.time && (i.date > t || (i.date === t && toMin(i.time) >= nowMin))).sort(byTime)[0] || null;
+}
+function viewToday(){
+  const list = visible(), g = taskGroups(list), t = ymd(today0());
+  const notes = list.filter(i => i.type === 'note').sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||'')).slice(0, 3);
+  const nTasks = g.overdue.length + g.today.length + g.week.length + g.nodate.length;
+  const mails = (S.mail.results || []).filter(r => S.filter === 'all' || r.area === S.filter).length;
+  const nx = nextEvent();
+  return `<div class="bento ${S.flowMode !== 'day' ? 'wide' : ''}">
+    <div class="stats">
+      <button class="stat next" ${nx ? `data-act="open" data-id="${esc(nx.id)}"` : ''} style="text-align:left;color:inherit;font:inherit"><span class="lbl">다음 일정${nx && nx.date !== t ? ' · ' + fmtDate(nx.date) : ''}</span><b class="num">${nx ? nx.time : '—'}</b><span class="sub">${nx ? esc(nx.title) : '남은 일정이 없어요'}</span></button>
+      <div class="stat"><span class="lbl">오늘 마감</span><b class="num">${g.today.length}</b></div>
+      <div class="stat ${g.overdue.length ? 'alert' : ''}"><span class="lbl">지난 마감</span><b class="num">${g.overdue.length}</b></div>
+      <div class="stat"><span class="lbl">챙길 메일</span><b class="num">${mails}</b></div>
+    </div>
+    ${focusTile()}
+    ${flowPanel()}
+    <section class="tile tasks"><h2><span>할 일</span><span class="h-actions num">${nTasks ? nTasks + '개 남음' : ''}</span></h2>
+      ${group('지난 마감', g.overdue, 'overdue')}
+      ${group('오늘', g.today, '', { showDate:false })}
+      ${group('이번 주', g.week)}
+      ${group('날짜 없음', g.nodate)}
+      ${nTasks ? '' : '<div class="empty">급한 할 일이 없어요. 생각나는 일을 Shine에게 말해보세요.</div>'}
+    </section>
+    ${mailPanel()}
+    ${notes.length ? `<section class="tile recent"><h2><span>최근 메모</span></h2>${notes.map(i => rowHtml(i)).join('')}</section>` : ''}
+  </div>`;
+}
+function focusTile(){
+  const list = visible(), t = ymd(today0()), lim = ymd(addDays(today0(), 14));
+  const hi = list.filter(i => i.priority === 'high' && i.status !== 'done' && i.type !== 'note' && (i.type === 'task' || !i.date || (i.date >= t && i.date <= lim)))
+    .sort((a,b) => (a.date || '9999').localeCompare(b.date || '9999') || (a.time || '99').localeCompare(b.time || '99'));
+  return `<section class="tile focus"><h2><span><span class="spark"><svg width="11" height="11" viewBox="0 0 32 32" fill="#fff" aria-hidden="true"><path d="M16 2l3 10.5L30 16l-11 3.5L16 30l-3-10.5L2 16l11-3.5z"/></svg></span>중요한 일</span><span class="h-actions num">${hi.length ? hi.length + '개' : ''}</span></h2>
+    ${hi.length ? hi.slice(0, 6).map(i => rowHtml(i, { noBadge: true })).join('') + (hi.length > 6 ? `<div class="more">외 ${hi.length - 6}개는 할 일 탭에서 볼 수 있어요</div>` : '')
+      : '<div class="empty">아직 중요 표시한 일이 없어요. 항목 옆 ☆을 누르거나 "중요"라고 말하면 여기에 올라와요.</div>'}
+  </section>`;
+}
+function greetText(){
+  const h = new Date().getHours(), g = taskGroups(visible());
+  const head = h < 5 ? '늦은 밤이에요, Sean' : h < 12 ? '좋은 아침이에요, Sean' : h < 18 ? '좋은 오후예요, Sean' : '좋은 저녁이에요, Sean';
+  const nx = nextEvent(), nowMin = h*60 + new Date().getMinutes(), t = ymd(today0());
+  let sub;
+  if (nx && nx.date === t) { const d = toMin(nx.time) - nowMin; sub = `<em>${esc(nx.title)}</em>까지 ${d < 60 ? d + '분' : Math.floor(d/60) + '시간' + (d%60 ? ' ' + d%60 + '분' : '')} 남았어요.`; }
+  else if (g.overdue.length) sub = `지난 마감 <em>${g.overdue.length}개</em>부터 정리해볼까요?`;
+  else if (g.today.length) sub = `오늘 마감 <em>${g.today.length}개</em>가 있어요.`;
+  else sub = '오늘은 여유 있는 하루예요.';
+  return { head, sub };
+}
+function tick(){
+  const n = new Date(), h = n.getHours();
+  const ct = document.getElementById('clock-t'); if (ct) ct.textContent = `${(h % 12) || 12}:${pad(n.getMinutes())}`;
+  const ap = document.getElementById('clock-ap'); if (ap) ap.textContent = h < 12 ? 'AM' : 'PM';
+  const g = greetText(); $('#greet-h').textContent = g.head; $('#greet-s').innerHTML = g.sub;
+  const nl = document.getElementById('nowline'), tl = document.getElementById('tl');
+  if (nl && tl) { const m = h*60 + n.getMinutes(), sc = Number(tl.dataset.scale || 1); nl.style.top = ((m - Number(tl.dataset.start)) / 60 * hourPx() * sc) + 'px'; const sp = nl.querySelector('span'); if (sp && sp.textContent) sp.textContent = `${pad(h)}:${pad(n.getMinutes())}`; }
+  if (tick.day && tick.day !== ymd(today0())) { S.flowDate = today0(); render(); }
+  tick.day = ymd(today0());
+}
+function chipHtml(it){
+  return `<button class="chip ${it.priority === 'high' ? 'hi' : ''} ${it.type==='task'?'task':''} ${it.area} ${it.status==='done'?'done':''}" data-act="open" data-id="${esc(it.id)}" title="${esc(it.title)}">${it.type==='event' && it.time ? `<span class="tm">${it.time}</span>` : it.type==='task' ? '<span class="tm">□</span>' : ''}${esc(it.title)}</button>`;
+}
+function itemsOn(list, d){ return list.filter(i => i.date === d && i.type !== 'note').sort((a,b) => (a.type==='event'?0:1)-(b.type==='event'?0:1) || (a.time||'99').localeCompare(b.time||'99')); }
+function viewCalendar(){
+  const list = visible(), t = ymd(today0()), A = S.calAnchor;
+  let body, label;
+  if (S.calMode === 'week') {
+    const mon = mondayOf(A);
+    label = `${mon.getFullYear()}년 ${mon.getMonth()+1}월 ${mon.getDate()}일 주`;
+    body = `<div class="week">${Array.from({length:7}, (_, k) => { const d = addDays(mon, k), s = ymd(d), its = itemsOn(list, s);
+      return `<div class="day ${s===t?'today':''}"><div class="day-h"><span>${WD[d.getDay()]} <span class="num">${d.getMonth()+1}/${d.getDate()}</span></span>${s===t?'<span>오늘</span>':''}</div>
+        <div class="day-items">${its.length ? its.map(chipHtml).join('') : '<span class="none">없음</span>'}</div></div>`; }).join('')}</div>`;
+  } else {
+    const first = new Date(A.getFullYear(), A.getMonth(), 1), start = mondayOf(first);
+    const last = new Date(A.getFullYear(), A.getMonth()+1, 0);
+    const weeks = Math.ceil((((last - start) / 864e5) + 1) / 7);
+    label = `${A.getFullYear()}년 ${A.getMonth()+1}월`;
+    body = `<div class="month">${['월','화','수','목','금','토','일'].map(w => `<div class="wd">${w}</div>`).join('')}
+      ${Array.from({length: weeks*7}, (_, k) => { const d = addDays(start, k), s = ymd(d), its = itemsOn(list, s);
+        return `<div class="mcell ${d.getMonth()!==A.getMonth()?'out':''} ${s===t?'today':''}" data-act="cal-day" data-d="${s}" title="${fmtDate(s)} 주간 보기"><span class="mnum">${d.getDate()}</span>
+          ${its.slice(0,3).map(chipHtml).join('')}${its.length>3?`<span class="more">+${its.length-3}</span>`:''}</div>`; }).join('')}</div>`;
+  }
+  return `<div class="cal-bar" style="margin-bottom:12px">
+      <h2>${label}</h2>
+      <button class="btn" data-act="cal-prev" aria-label="이전">‹</button>
+      <button class="btn" data-act="cal-today">오늘</button>
+      <button class="btn" data-act="cal-next" aria-label="다음">›</button>
+      <div class="seg" role="group" aria-label="캘린더 보기">
+        <button data-act="cal-mode" data-v="week" aria-pressed="${S.calMode==='week'}">주</button>
+        <button data-act="cal-mode" data-v="month" aria-pressed="${S.calMode==='month'}">월</button>
+      </div>
+    </div>${body}
+    <p class="raw" style="margin-top:8px">채워진 칸은 일정, 점선 칸은 마감이 있는 할 일이에요.</p>`;
+}
+function viewTasks(){
+  const list = visible(), g = taskGroups(list);
+  const done = list.filter(i => i.type === 'task' && i.status === 'done').sort((a,b) => (b.doneAt||'').localeCompare(a.doneAt||''));
+  const total = g.overdue.length + g.today.length + g.week.length + g.later.length + g.nodate.length;
+  return `<section class="panel">
+    <h2>열린 할 일 <span class="num" style="color:var(--muted);font-weight:500">${total}</span></h2>
+    ${group('지난 마감', g.overdue, 'overdue')}${group('오늘', g.today, '', { showDate:false })}${group('이번 주', g.week)}${group('나중에', g.later)}${group('날짜 없음', g.nodate)}
+    ${total ? '' : '<div class="empty">열린 할 일이 없어요.</div>'}
+    <div style="margin-top:10px"><button class="btn" data-act="toggle-done">${S.showDone ? '완료 숨기기' : `완료한 일 보기 (${done.length})`}</button></div>
+    ${S.showDone ? group('완료', done) : ''}
+  </section>`;
+}
+function viewNotes(){
+  const notes = visible().filter(i => i.type === 'note').sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+  if (!notes.length) return '<div class="panel"><div class="empty">아직 메모가 없어요. 아이디어를 한 줄로 적거나, "미팅 메모 정리"에 미팅 내용을 붙여넣어 보세요.</div></div>';
+  return `<div class="notes">${notes.map(n => `<button class="note-card" data-act="open" data-id="${esc(n.id)}">
+    <span class="meta"><span class="dot ${n.area}"></span><span class="num">${n.date ? fmtDate(n.date) : ''}</span>${n.org ? `<span>${esc(n.org)}</span>` : ''}${n.source ? `<span>${esc(n.source)}</span>` : ''}${n.example ? '<span>예시</span>' : ''}</span>
+    <strong>${esc(n.title)}</strong>${n.notes ? `<p>${esc(n.notes)}</p>` : ''}</button>`).join('')}</div>`;
+}
+
+/* ---------- detail dialog ---------- */
+let openId = null, confirmDel = false;
+function related(it){
+  const org = (it.org||'').toLowerCase(), ppl = new Set((it.people||[]).map(p => p.toLowerCase()));
+  return S.items.filter(x => x.id !== it.id && (
+    (org && (x.org||'').toLowerCase() === org) ||
+    (x.people||[]).some(p => ppl.has(p.toLowerCase())) ||
+    (x.links||[]).includes(it.id) || (it.links||[]).includes(x.id))).sort(byTime).slice(0, 8);
+}
+function renderDialog(){
+  const root = $('#dlg-root'); const it = S.items.find(x => x.id === openId);
+  if (!it) { root.innerHTML = ''; openId = null; return; }
+  const rel = related(it);
+  root.innerHTML = `<div class="overlay" data-act="dlg-bg"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-h">
+    <h3 id="dlg-h">${it.type==='task'?'할 일':it.type==='event'?'일정':'메모'} 편집</h3>
+    <div class="form">
+      <label class="full">제목<input id="f-title" value="${esc(it.title)}"></label>
+      <label>종류<select id="f-type"><option value="task" ${it.type==='task'?'selected':''}>할 일</option><option value="event" ${it.type==='event'?'selected':''}>일정</option><option value="note" ${it.type==='note'?'selected':''}>메모</option></select></label>
+      <label>구분<select id="f-area"><option value="work" ${it.area==='work'?'selected':''}>업무</option><option value="personal" ${it.area==='personal'?'selected':''}>개인</option></select></label>
+      <label>${it.type==='task'?'마감일':'날짜'}<input type="date" id="f-date" value="${it.date||''}"></label>
+      <label>중요도<select id="f-prio"><option value="high" ${it.priority==='high'?'selected':''}>★ 중요</option><option value="normal" ${!it.priority||it.priority==='normal'?'selected':''}>보통</option><option value="low" ${it.priority==='low'?'selected':''}>낮음</option></select></label>
+      <label>시작 시간<input type="time" id="f-time" value="${it.time||''}"></label>
+      <label>종료 시간<input type="time" id="f-end" value="${it.endTime||''}"></label>
+      <label>사람 (쉼표로 구분)<input id="f-people" value="${esc((it.people||[]).join(', '))}"></label>
+      <label>회사·프로젝트<input id="f-org" value="${esc(it.org||'')}"></label>
+      <label class="full">메모<textarea id="f-notes">${esc(it.notes||'')}</textarea></label>
+    </div>
+    ${it.raw ? `<div class="raw">원문 입력: “${esc(it.raw)}” · ${esc(it.source||'')}</div>` : ''}
+    ${it.tz ? `<div class="tzline num">상대 시간: ${esc(tzNote(it))}</div>` : ''}
+    ${it.mailUrl ? `<a class="btn sm" href="${esc(it.mailUrl)}" target="_blank" rel="noopener" style="align-self:flex-start">Gmail에서 메일 열기</a>` : ''}
+    ${it.type === 'event' && mcp ? gcalBox(it) : ''}
+    ${rel.length ? `<div class="related"><h4>관련 항목</h4>${rel.map(r => rowHtml(r)).join('')}</div>` : ''}
+    <div class="dlg-actions">
+      <span class="left">${confirmDel
+        ? `<span style="font-size:13px">정말 삭제할까요?</span><button class="btn danger" data-act="del-yes">삭제</button><button class="btn" data-act="del-no">아니요</button>`
+        : `<button class="btn danger" data-act="del">삭제</button>`}</span>
+      ${it.type==='task' ? `<button class="btn" data-act="dlg-done">${it.status==='done'?'완료 취소':'완료'}</button>` : ''}
+      <button class="btn" data-act="dlg-close">닫기</button>
+      <button class="btn primary" data-act="dlg-save">저장</button>
+    </div></div></div>`;
+}
+function gcalBox(it){
+  if (it.gcal && it.gcal.created) return `<div class="gcal-box"><b>Google 캘린더에 생성됨</b><div class="opts">
+    ${it.gcal.meet ? `<a class="btn sm" href="${esc(it.gcal.meet)}" target="_blank" rel="noopener">Meet 참여</a>` : ''}
+    ${it.gcal.link ? `<a class="btn sm" href="${esc(it.gcal.link)}" target="_blank" rel="noopener">캘린더에서 보기</a>` : ''}
+    ${(it.gcal.attendees || []).length ? `<span>초대: ${esc(it.gcal.attendees.join(', '))}</span>` : ''}</div></div>`;
+  const D = S.gcDraft || { att: (it.attendees || []).join(', '), meet: true };
+  const n = (D.att.match(EMAIL_RE) || []).length;
+  return `<div class="gcal-box"><b>Google 캘린더로 보내기</b>
+    <input type="text" id="f-att" value="${esc(D.att)}" placeholder="초대할 이메일 (쉼표로 구분)" aria-label="초대할 이메일" ${S.gcConfirm ? 'disabled' : ''}>
+    <div class="opts"><label><input type="checkbox" id="f-meet" ${D.meet ? 'checked' : ''} ${S.gcConfirm ? 'disabled' : ''}> Google Meet 추가</label>
+    ${S.gcBusy ? '<span>만드는 중…</span>' : S.gcConfirm
+      ? `<span>${n ? `${n}명에게 초대장이 발송돼요.` : '초대 없이 내 캘린더에만 만들어요.'}</span><button class="btn primary sm" data-act="gc-go">${n ? '발송' : '만들기'}</button><button class="btn sm" data-act="gc-no">취소</button>`
+      : `<button class="btn sm" data-act="gc-ask">Google 캘린더에 만들기</button>`}</div>
+    ${S.gcErr ? `<div class="err-line">${esc(S.gcErr)}</div>` : ''}</div>`;
+}
+async function saveDialog(close){
+  const it = S.items.find(x => x.id === openId); if (!it) return;
+  const v = id => document.getElementById(id).value.trim();
+  const type = v('f-type');
+  const patch = { title: v('f-title') || it.title, type, area: v('f-area'), date: v('f-date') || null,
+    time: v('f-time') || null, endTime: v('f-end') || null,
+    people: v('f-people') ? v('f-people').split(/[,，]/).map(s => s.trim()).filter(Boolean) : [],
+    org: v('f-org') || null, priority: v('f-prio'), notes: document.getElementById('f-notes').value };
+  if (type === 'event' && patch.time && !patch.endTime) patch.endTime = addHour(patch.time);
+  if (it.example) patch.example = false;
+  await Store.update(it.id, patch); if (close !== false) closeDialog();
+}
+function closeDialog(){ openId = null; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); }
+async function toggleDone(id){
+  const it = S.items.find(x => x.id === id); if (!it) return;
+  const done = it.status !== 'done';
+  await Store.update(id, { status: done ? 'done' : 'open', doneAt: done ? new Date().toISOString() : null });
+}
+
+/* ---------- render ---------- */
+function render(){
+  const t = today0();
+  $('#today-label').textContent = `${t.getFullYear()}년 ${t.getMonth()+1}월 ${t.getDate()}일 ${WD[t.getDay()]}요일`;
+  $('#today-label').textContent += ` · ${tzName(LTZ)}`;
+  document.querySelectorAll('#filter button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === S.filter)));
+  document.querySelectorAll('#tabs a').forEach(a => a.setAttribute('aria-current', a.dataset.tab === S.tab ? 'page' : 'false'));
+  const vis = visible();
+  const openTasks = vis.filter(i => i.type === 'task' && i.status !== 'done').length;
+  $('#cnt-tasks').textContent = openTasks ? ' ' + openTasks : '';
+  const nNotes = vis.filter(i => i.type === 'note').length;
+  $('#cnt-notes').textContent = nNotes ? ' ' + nNotes : '';
+  const examples = S.items.filter(i => i.example).length;
+  if (S.storeMode === 'local') setBanner('이 화면에서는 저장소에 연결되지 않아 이 브라우저에만 저장돼요. claude.ai에서 열면 어디서든 같은 데이터를 볼 수 있어요.');
+  else if (examples) setBanner(`<span>예시 ${examples}개 · 둘러보신 뒤 지워주세요</span><button class="btn" data-act="clear-examples">예시 지우기</button>`);
+  else if (S.storeMode === 'db') setBanner('');
+  const view = $('#view');
+  if (S.storeMode === 'loading') { view.innerHTML = '<div class="panel"><div class="empty">일정과 할 일을 불러오는 중이에요…</div></div>'; return; }
+  view.innerHTML = S.tab === 'tasks' ? viewTasks() : S.tab === 'notes' ? viewNotes() : viewToday();
+  if (openId) renderDialog();
+  tick();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-act],[data-filter],[data-mode]'); if (!el) return;
+  if (el.dataset.filter) { S.filter = el.dataset.filter; ls.set('hub.filter', S.filter); render(); return; }
+  if (el.dataset.mode) { setMode(el.dataset.mode); return; }
+  const act = el.dataset.act, id = el.dataset.id;
+  if (act === 'dlg-bg' && e.target !== el) return;
+  switch (act) {
+    case 'open': openId = id; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); setTimeout(() => { const f = document.getElementById('f-title'); f && f.focus(); }, 0); break;
+    case 'toggle': toggleDone(id); break;
+    case 'star': { const it = S.items.find(x => x.id === id); if (it) Store.update(id, { priority: it.priority === 'high' ? 'normal' : 'high' }); break; }
+    case 'pv-commit': commitPreview(); break;
+    case 'pv-cancel': parseSeq++; S.preview = null; renderPreview(); setStatus(''); break;
+    case 'cal-prev': S.calAnchor = S.calMode==='week' ? addDays(S.calAnchor,-7) : new Date(S.calAnchor.getFullYear(), S.calAnchor.getMonth()-1, 1); render(); break;
+    case 'cal-next': S.calAnchor = S.calMode==='week' ? addDays(S.calAnchor,7) : new Date(S.calAnchor.getFullYear(), S.calAnchor.getMonth()+1, 1); render(); break;
+    case 'cal-today': S.calAnchor = today0(); render(); break;
+    case 'flow-mode': S.flowMode = el.dataset.v; ls.set('hub.flowMode', S.flowMode); render(); break;
+    case 'flow-today': S.flowDate = today0(); render(); break;
+    case 'flow-prev': case 'flow-next': { const k = act === 'flow-prev' ? -1 : 1, D = S.flowDate;
+      S.flowDate = S.flowMode === 'day' ? addDays(D, k) : S.flowMode === 'week' ? addDays(D, 7*k) : new Date(D.getFullYear(), D.getMonth() + k, 1); render(); break; }
+    case 'flow-day': S.flowDate = fromYmd(el.dataset.d); S.flowMode = 'day'; ls.set('hub.flowMode', 'day'); render(); break;
+    case 'cal-day': S.calAnchor = fromYmd(el.dataset.d); S.calMode = 'week'; ls.set('hub.calMode', 'week'); render(); break;
+    case 'cal-mode': S.calMode = el.dataset.v; ls.set('hub.calMode', S.calMode); render(); break;
+    case 'toggle-done': S.showDone = !S.showDone; render(); break;
+    case 'dlg-bg': case 'dlg-close': closeDialog(); break;
+    case 'dlg-save': saveDialog(); break;
+    case 'dlg-done': await toggleDone(openId); closeDialog(); break;
+    case 'del': confirmDel = true; renderDialog(); break;
+    case 'del-no': confirmDel = false; renderDialog(); break;
+    case 'del-yes': { const x = openId; closeDialog(); await Store.remove(x); break; }
+    case 'mail-check': checkMail(false); break;
+    case 'mail-task': el.disabled = true; mailToTask(el.dataset.tid); break;
+    case 'mail-skip': mailSkip(el.dataset.tid); break;
+    case 'mail-more': S.mailMore = !S.mailMore; render(); break;
+    case 'save-pemail': { const v = document.getElementById('set-pemail').value.trim(); await Store.saveMail({ personalEmail: v }); setStatus(v ? '개인 메일 주소를 저장했어요.' : '개인 메일 주소를 지웠어요.'); break; }
+    case 'gc-ask': {
+      S.gcDraft = { att: document.getElementById('f-att').value, meet: document.getElementById('f-meet').checked };
+      await saveDialog(false); S.gcConfirm = true; S.gcErr = ''; renderDialog(); break; }
+    case 'gc-no': S.gcConfirm = false; renderDialog(); break;
+    case 'gc-go': {
+      const it = S.items.find(x => x.id === openId); if (!it || S.gcBusy) break;
+      if (!it.date || !it.time) { S.gcConfirm = false; S.gcErr = '날짜와 시간을 넣고 저장한 뒤 만들어주세요.'; renderDialog(); break; }
+      S.gcBusy = true; renderDialog();
+      const r = await createGcal(it.id, it, S.gcDraft.att.match(EMAIL_RE) || [], S.gcDraft.meet);
+      S.gcBusy = false; S.gcConfirm = false;
+      if (r.ok) { S.gcDraft = null; setStatus(r.text); } else S.gcErr = r.text;
+      renderDialog(); break; }
+    case 'clear-examples': el.disabled = true; for (const it of S.items.filter(i => i.example)) await Store.remove(it.id); break;
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && openId) { closeDialog(); return; }
+  if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); (S.mode==='line' ? $('#quick') : $('#meeting')).focus(); }
+});
+$('#quick').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  const text = $('#quick').value.trim();
+  if (S.preview && S.preview.kind === 'line' && S.preview.raw === text) commitPreview(); else runQuick();
+});
+$('#preview').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing && e.target.matches('input:not([type=checkbox])')) { e.preventDefault(); commitPreview(); }
+});
+$('#quick-go').addEventListener('click', () => {
+  const text = $('#quick').value.trim();
+  if (S.preview && S.preview.kind === 'line' && S.preview.raw === text) commitPreview(); else runQuick();
+});
+$('#quick').addEventListener('input', () => {
+  const p = S.preview; $('#quick-go').textContent = p && p.kind === 'line' && p.raw === $('#quick').value.trim() ? '등록' : '해석';
+});
+$('#meet-go').addEventListener('click', runMeeting);
+function setMode(m){
+  S.mode = m; S.preview = null; renderPreview(); setStatus('');
+  document.querySelectorAll('#mode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  $('#line-row').hidden = m !== 'line'; $('#meet-row').hidden = m !== 'meeting';
+  $('#cap-hint').textContent = m === 'line' ? '예: 다음주 수요일 OOO에게 이메일 전달 · 화요일 한국시간 오후 2시 CJ ENM 화상 미팅' : '메모를 붙여넣으면 요약, 후속 액션, 다음 미팅을 뽑아줘요';
+  (m === 'line' ? $('#quick') : $('#meeting')).focus();
+}
+function route(){ let h = (location.hash || '#today').slice(1); if (h === 'calendar') { h = 'today'; if (S.flowMode === 'day') S.flowMode = 'week'; } S.tab = ['today','tasks','notes'].includes(h) ? h : 'today'; render(); }
+window.matchMedia('(max-width:699px)').addEventListener('change', () => render());
+window.addEventListener('hashchange', route);
+const origRender = render;
+
+/* ---------- dictation ---------- */
+function wireDictation(){
+  let target = null;
+  const btns = [$('#mic-line'), $('#mic-meet')];
+  btns.forEach(b => b.hidden = false);
+  dictation.onFinal(({ text }) => {
+    if (!target) return;
+    target.value = target.value ? target.value + text : text.replace(/^\s+/, '');
+    if (target.id === 'quick') $('#quick').dispatchEvent(new Event('input'));
+  });
+  dictation.onPartial(({ text }) => { if (target) setStatus(text ? '듣는 중: ' + text : '듣는 중…'); });
+  dictation.onState(({ state, reason }) => {
+    const on = state !== 'idle';
+    btns.forEach(b => b.dataset.on = String(on));
+    if (on) setStatus('듣는 중… 다시 누르면 멈춰요.');
+    else { setStatus(reason === 'not_granted' ? '마이크 사용이 허용되지 않았어요.' : ''); }
+  });
+  btns.forEach(b => b.addEventListener('click', () => {
+    if (dictation.active()) { dictation.stop(); return; }
+    target = b.id === 'mic-line' ? $('#quick') : $('#meeting');
+    dictation.start({ language: 'ko' }).catch(err => {
+      if (err && err.code === 'not_granted') btns.forEach(x => x.hidden = true);
+      else if (err && err.code !== 'stopped') setStatus('음성 입력을 시작하지 못했어요.', true);
+    });
+  }));
+}
+
+/* ---------- boot ---------- */
+setMode('line'); $('#quick').blur();
+setInterval(tick, 20000);
+route();
+Store.init();
+(async () => {
+  const cl = window.claude; if (!cl || !cl.use) { S.aiReady = false; return; }
+  const [s, d, m] = await Promise.all([cl.use('sample'), cl.use('dictation'), cl.use('mcp')]);
+  sample = s; S.aiReady = !!s; mcp = m;
+  if (d) { dictation = d; wireDictation(); }
+  render(); maybeAutoMail();
+})();
+})();
+</script>
