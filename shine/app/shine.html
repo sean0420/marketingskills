@@ -13,19 +13,20 @@
   --shadow:0 1px 1px rgba(21,22,40,.03),0 14px 36px -16px rgba(21,22,40,.20);
   --grad:linear-gradient(120deg,var(--sun1),var(--sun2) 52%,var(--sun3));
   --font:"Geist","IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
-  --hour:54px;
+  --hour:54px; --solid:#FFFFFF;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0A0B0F; --ink:#F2F2F6; --muted:#9A9DAE; --glass:rgba(27,28,38,.62); --glass-strong:rgba(31,32,44,.92);
   --stroke:rgba(255,255,255,.07); --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.14); --fill:rgba(255,255,255,.06);
   --work:#7E9CFF; --work-bg:rgba(126,156,255,.17); --life:#3FD8A6; --life-bg:rgba(63,216,166,.15); --danger:#FF6B70; --focus:#7E9CFF;
-  --blob1:#4A2213; --blob2:#261D5C; --blob3:#0B3527; --shadow:none; color-scheme:dark}}
+  --blob1:#4A2213; --blob2:#261D5C; --blob3:#0B3527; --shadow:none; --solid:#1D1E28; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0A0B0F; --ink:#F2F2F6; --muted:#9A9DAE; --glass:rgba(27,28,38,.62); --glass-strong:rgba(31,32,44,.92);
   --stroke:rgba(255,255,255,.07); --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.14); --fill:rgba(255,255,255,.06);
   --work:#7E9CFF; --work-bg:rgba(126,156,255,.17); --life:#3FD8A6; --life-bg:rgba(63,216,166,.15); --danger:#FF6B70; --focus:#7E9CFF;
-  --blob1:#4A2213; --blob2:#261D5C; --blob3:#0B3527; --shadow:none; color-scheme:dark}
+  --blob1:#4A2213; --blob2:#261D5C; --blob3:#0B3527; --shadow:none; --solid:#1D1E28; color-scheme:dark}
 *{box-sizing:border-box}
+html,body{overflow-x:clip}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;margin:0;-webkit-font-smoothing:antialiased}
 .aura{position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:radial-gradient(42% 38% at 6% 0%,var(--blob1),transparent 72%),radial-gradient(38% 34% at 96% 6%,var(--blob2),transparent 72%),radial-gradient(46% 40% at 62% 104%,var(--blob3),transparent 72%)}
@@ -273,6 +274,22 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 .focus::before{content:"";position:absolute;inset:-1px;border-radius:29px;padding:1.5px;background:var(--grad);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .focus h2 .spark{width:20px;height:20px;border-radius:7px;background:var(--grad);display:inline-grid;place-items:center;margin-right:8px;vertical-align:-4px}
+/* swipe to delete (drag right) */
+.swipe{position:relative;overflow:hidden;border-radius:14px;touch-action:pan-y;-webkit-user-select:none;user-select:none}
+.swipe-bg{position:absolute;inset:0;border-radius:14px;background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger);display:flex;align-items:center;gap:6px;padding-left:16px;font-weight:600;font-size:13px;opacity:0;pointer-events:none}
+.swipe.active .swipe-bg{opacity:1}
+.swipe.armed .swipe-bg{background:var(--danger);color:#fff}
+.swipe .row{position:relative;transition:transform .24s cubic-bezier(.2,.8,.2,1)}
+.swipe.active .row{background:var(--solid);transition:none}
+.swipe.gone{overflow:hidden;transition:height .2s ease,opacity .2s ease,margin .2s ease}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:45;background:var(--ink);color:var(--bg);border-radius:999px;padding:6px 6px 6px 18px;display:flex;gap:10px;align-items:center;font-size:13.5px;box-shadow:0 14px 40px -12px rgba(0,0,0,.4);max-width:calc(100% - 32px)}
+.toast button{border:0;background:transparent;color:var(--sun1);font-weight:650;padding:7px 12px;border-radius:999px}
+.confirm{max-width:380px;text-align:center;gap:10px}
+.confirm .ico{width:44px;height:44px;border-radius:50%;margin:0 auto;background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger);display:grid;place-items:center}
+.confirm p{margin:0;color:var(--muted)}
+.confirm .dlg-actions{justify-content:center}
+.confirm .dlg-actions .btn{flex:1}
+.btn.danger-solid{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600}
 /* iPad portrait */
 @media (max-width:1099px){
   .page{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
@@ -333,6 +350,8 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
   .form input,.form select,.form textarea{font-size:16px;padding:8px 10px}
   .dlg-actions .left{flex-basis:100%}
   .dlg-actions > .btn{flex:1}
+  .overlay.center{align-items:center;padding:16px}
+  .confirm{border-radius:26px}
 }
 @media (prefers-reduced-motion:no-preference){.row,.chip,.btn,.ev,.mcell{transition:background .15s,filter .15s}}
 </style>
@@ -395,6 +414,8 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
   <a href="#notes" data-tab="notes">메모<span class="count num" id="cnt-notes"></span></a>
 </nav>
 <div id="dlg-root"></div>
+<div id="confirm-root"></div>
+<div id="toast-root" role="status" aria-live="polite"></div>
 
 <script>
 (() => {
@@ -500,6 +521,11 @@ const Store = {
   async remove(id){
     if (this.db) return this.db.doc('items/' + id).delete();
     S.items = S.items.filter(x => x.id !== id); this.saveLocal();
+  },
+  async restore(it){
+    const { id, ...data } = it;
+    if (this.db) return this.db.doc('items/' + id).set(data);
+    S.items.push({ ...it }); this.saveLocal();
   }
 };
 
@@ -919,7 +945,7 @@ function taskGroups(list){
 }
 
 /* ---------- row templates ---------- */
-function rowHtml(it, opts = {}){
+function rowInner(it, opts = {}){
   const t = ymd(today0());
   const late = it.type === 'task' && it.status !== 'done' && it.date && it.date < t;
   const lead = it.type === 'task'
@@ -937,6 +963,11 @@ function rowHtml(it, opts = {}){
   return `<div class="row ${it.area} ${it.status==='done'?'done':''} ${it.priority === 'low' ? 'low' : ''}">${lead}
     <button class="row-main" data-act="open" data-id="${esc(it.id)}"><span class="title-line">${hi && !opts.noBadge ? '<span class="prio">중요</span>' : ''}<span class="title">${esc(it.title)}</span></span>${meta.length ? `<span class="meta">${meta.join('')}</span>` : ''}</button>
     ${it.type !== 'note' && it.status !== 'done' ? `<button class="star ${hi ? 'on' : ''}" data-act="star" data-id="${esc(it.id)}" aria-label="${hi ? '중요 해제' : '중요로 표시'}" aria-pressed="${hi}"><svg width="16" height="16" viewBox="0 0 24 24" fill="${hi ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></button>` : ''}</div>`;
+}
+function rowHtml(it, opts = {}){
+  const inner = rowInner(it, opts);
+  if (opts.noSwipe) return inner;
+  return `<div class="swipe" data-swipe="${esc(it.id)}"><div class="swipe-bg" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>삭제</div>${inner}</div>`;
 }
 const group = (label, list, cls = '', opts) => list.length ? `<div class="group-label ${cls}">${label} <span class="num">${list.length}</span></div>${list.map(i => rowHtml(i, opts)).join('')}` : '';
 
@@ -1168,7 +1199,7 @@ function renderDialog(){
     ${it.tz ? `<div class="tzline num">상대 시간: ${esc(tzNote(it))}</div>` : ''}
     ${it.mailUrl ? `<a class="btn sm" href="${esc(it.mailUrl)}" target="_blank" rel="noopener" style="align-self:flex-start">Gmail에서 메일 열기</a>` : ''}
     ${it.type === 'event' && mcp ? gcalBox(it) : ''}
-    ${rel.length ? `<div class="related"><h4>관련 항목</h4>${rel.map(r => rowHtml(r)).join('')}</div>` : ''}
+    ${rel.length ? `<div class="related"><h4>관련 항목</h4>${rel.map(r => rowHtml(r, { noSwipe: true })).join('')}</div>` : ''}
     <div class="dlg-actions">
       <span class="left">${confirmDel
         ? `<span style="font-size:13px">정말 삭제할까요?</span><button class="btn danger" data-act="del-yes">삭제</button><button class="btn" data-act="del-no">아니요</button>`
@@ -1245,6 +1276,9 @@ document.addEventListener('click', async e => {
   switch (act) {
     case 'open': openId = id; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); setTimeout(() => { const f = document.getElementById('f-title'); f && f.focus(); }, 0); break;
     case 'toggle': toggleDone(id); break;
+    case 'cf-no': if (act === 'cf-no' && el.classList.contains('overlay') && e.target !== el) return; if (pendingDelete) snapBack(pendingDelete.w); pendingDelete = null; renderConfirm(); break;
+    case 'cf-yes': { const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P) animateOut(P.w, () => doDelete(P.it)); break; }
+    case 'undo-del': { const it = lastDeleted; lastDeleted = null; clearTimeout(toastTimer); $('#toast-root').innerHTML = ''; if (it) { await Store.restore(it); setStatus(''); } break; }
     case 'star': { const it = S.items.find(x => x.id === id); if (it) Store.update(id, { priority: it.priority === 'high' ? 'normal' : 'high' }); break; }
     case 'pv-commit': commitPreview(); break;
     case 'pv-cancel': parseSeq++; S.preview = null; renderPreview(); setStatus(''); break;
@@ -1286,6 +1320,7 @@ document.addEventListener('click', async e => {
   }
 });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && pendingDelete) { snapBack(pendingDelete.w); pendingDelete = null; renderConfirm(); return; }
   if (e.key === 'Escape' && openId) { closeDialog(); return; }
   if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); (S.mode==='line' ? $('#quick') : $('#meeting')).focus(); }
 });
@@ -1343,6 +1378,68 @@ function wireDictation(){
       else if (err && err.code !== 'stopped') setStatus('음성 입력을 시작하지 못했어요.', true);
     });
   }));
+}
+
+/* ---------- swipe to delete ---------- */
+let sw = null, suppressClick = false, toastTimer = null, lastDeleted = null, pendingDelete = null;
+document.addEventListener('pointerdown', e => {
+  const w = e.target.closest('.swipe'); if (!w || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  sw = { w, row: w.querySelector('.row'), x: e.clientX, y: e.clientY, dx: 0, mode: null, pid: e.pointerId, id: w.dataset.swipe };
+});
+document.addEventListener('pointermove', e => {
+  if (!sw || e.pointerId !== sw.pid) return;
+  const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+  if (!sw.mode) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    sw.mode = dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.2 ? 'swipe' : 'none';
+    if (sw.mode === 'swipe') { sw.w.classList.add('active'); try { sw.w.setPointerCapture(e.pointerId); } catch {} }
+    else { sw = null; return; }
+  }
+  sw.dx = Math.max(0, dx);
+  sw.row.style.transform = `translateX(${sw.dx}px)`;
+  sw.w.classList.toggle('armed', sw.dx > Math.min(140, sw.w.offsetWidth * 0.35));
+});
+function endSwipe(e){
+  if (!sw || (e && e.pointerId !== sw.pid)) return;
+  const s = sw; sw = null;
+  if (s.mode !== 'swipe') return;
+  suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
+  if (s.w.classList.contains('armed') && e.type === 'pointerup') swipeDelete(s);
+  else snapBack(s.w);
+}
+document.addEventListener('pointerup', endSwipe);
+document.addEventListener('pointercancel', endSwipe);
+document.addEventListener('click', e => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false; } }, true);
+function snapBack(w){ const r = w.querySelector('.row'); if (r) r.style.transform = ''; w.classList.remove('armed'); setTimeout(() => w.classList.remove('active'), 240); }
+function swipeDelete(s){
+  const it = S.items.find(x => x.id === s.id); if (!it) { snapBack(s.w); return; }
+  if (it.priority === 'high') { pendingDelete = { it, w: s.w }; renderConfirm(); return; }
+  animateOut(s.w, () => doDelete(it));
+}
+function animateOut(w, done){
+  const r = w.querySelector('.row'); r.style.transition = 'transform .2s ease'; r.style.transform = 'translateX(110%)';
+  setTimeout(() => { w.style.height = w.offsetHeight + 'px'; w.classList.add('gone'); requestAnimationFrame(() => { w.style.height = '0px'; w.style.opacity = '0'; }); setTimeout(done, 200); }, 180);
+}
+async function doDelete(it){
+  lastDeleted = { ...it };
+  await Store.remove(it.id);
+  showToast(`"${it.title.length > 18 ? it.title.slice(0, 18) + '…' : it.title}" 삭제했어요`);
+}
+function showToast(msg){
+  clearTimeout(toastTimer);
+  $('#toast-root').innerHTML = `<div class="toast"><span>${esc(msg)}</span><button data-act="undo-del">되돌리기</button></div>`;
+  toastTimer = setTimeout(() => { $('#toast-root').innerHTML = ''; lastDeleted = null; }, 5000);
+}
+function renderConfirm(){
+  const root = $('#confirm-root'); const P = pendingDelete;
+  if (!P) { root.innerHTML = ''; return; }
+  root.innerHTML = `<div class="overlay center" data-act="cf-no"><div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="cf-h">
+    <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></div>
+    <h3 id="cf-h">중요한 항목이에요</h3>
+    <p>"${esc(P.it.title)}"을(를) 정말 삭제할까요?</p>
+    <div class="dlg-actions"><button class="btn" data-act="cf-no">취소</button><button class="btn danger-solid" data-act="cf-yes">삭제</button></div>
+  </div></div>`;
+  setTimeout(() => { const b = root.querySelector('[data-act="cf-no"].btn'); b && b.focus(); }, 0);
 }
 
 /* ---------- boot ---------- */
