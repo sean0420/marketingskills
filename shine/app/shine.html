@@ -222,7 +222,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .mrow-main b{font-weight:550;overflow-wrap:anywhere}
 .mrow-act{grid-column:2;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .mtag{font-size:11px;font-weight:600;border-radius:7px;padding:1px 7px;background:var(--fill);color:var(--muted);margin-top:2px}
-.mtag.high{background:var(--danger);color:#fff}
+.mtag.high{background:var(--grad);color:#fff}
+.mtag.lo{background:transparent;box-shadow:inset 0 0 0 1px var(--line-2)}
+.mrow.mp-low .mrow-main b{font-weight:450;color:var(--muted)}
 .mail details{font-size:12.5px;color:var(--muted);margin-top:8px}
 .mail details summary{cursor:pointer}
 .mail .set-row{display:flex;gap:6px;margin-top:6px}
@@ -283,13 +285,21 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 .swipe.active .row{background:var(--solid);transition:none}
 .swipe.gone{overflow:hidden;transition:height .2s ease,opacity .2s ease,margin .2s ease}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:45;background:var(--ink);color:var(--bg);border-radius:999px;padding:6px 6px 6px 18px;display:flex;gap:10px;align-items:center;font-size:13.5px;box-shadow:0 14px 40px -12px rgba(0,0,0,.4);max-width:calc(100% - 32px)}
-.toast button{border:0;background:transparent;color:var(--sun1);font-weight:650;padding:7px 12px;border-radius:999px}
+.toast button{border:0;background:transparent;color:var(--sun1);font-weight:650;padding:7px 12px;border-radius:999px;white-space:nowrap;flex:none}
+.toast span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .confirm{max-width:380px;text-align:center;gap:10px}
 .confirm .ico{width:44px;height:44px;border-radius:50%;margin:0 auto;background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger);display:grid;place-items:center}
 .confirm p{margin:0;color:var(--muted)}
 .confirm .dlg-actions{justify-content:center}
 .confirm .dlg-actions .btn{flex:1}
 .btn.danger-solid{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600}
+/* live sync indicator */
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:0;background:var(--fill);border-radius:999px;padding:4px 10px 4px 8px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--life);box-shadow:0 0 0 0 color-mix(in srgb,var(--life) 60%,transparent)}
+.live.on i{animation:pulse 2.4s ease-out infinite}
+.live.off i{background:var(--danger)} .live.wait i{background:var(--sun1)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--life) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.live.on i{animation:none}}
 /* iPad portrait */
 @media (max-width:1099px){
   .page{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
@@ -307,6 +317,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
   .top-r{gap:6px}
   .clock #clock-t{font-size:26px}
   .clock #clock-ap,.dateline{display:none}
+  .live{padding:3px 8px 3px 6px;font-size:11px}
   .top-r .seg button{padding:4px 8px;font-size:11.5px;white-space:nowrap}
   .top-r{flex:none}
   .hello{min-width:0}
@@ -337,7 +348,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
   .mcell .chip{font-size:0;padding:0;height:5px;border-radius:3px;pointer-events:none}
   .mcell .chip .tm{display:none}
   .month .wd{padding:2px 0 4px;text-align:center}
-  .tabs a{padding:9px 16px;font-size:13.5px}
+  .tabs a{padding:9px 12px;font-size:13px}
   .banner{padding:6px 6px 6px 12px;font-size:12.5px;flex-wrap:nowrap}
   .pv{padding:8px 10px}
   .pv-fields .t{flex-basis:100%}
@@ -366,6 +377,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
     </div>
     <div class="top-r">
       <div class="clock"><span id="clock-t" class="num">--:--</span><span id="clock-ap"></span></div>
+      <button class="live wait" id="live" data-act="sync-now" title="눌러서 지금 새로 고침"><i></i><span id="live-t">연결 중</span></button>
       <div class="dateline" id="today-label"></div>
       <div class="seg" role="group" aria-label="업무 개인 필터" id="filter">
         <button data-filter="all" aria-pressed="true">전체</button>
@@ -412,6 +424,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
   <a href="#today" data-tab="today">오늘</a>
   <a href="#tasks" data-tab="tasks">할 일<span class="count num" id="cnt-tasks"></span></a>
   <a href="#notes" data-tab="notes">메모<span class="count num" id="cnt-notes"></span></a>
+  <a href="#archive" data-tab="archive">보관함<span class="count num" id="cnt-arch"></span></a>
 </nav>
 <div id="dlg-root"></div>
 <div id="confirm-root"></div>
@@ -463,16 +476,27 @@ const ls = { get(k, f){ try { const v = localStorage.getItem(k); return v == nul
 
 /* ---------- state ---------- */
 const S = {
-  items: [], filter: ls.get('hub.filter', 'all'), mode: 'line', tab: 'today',
+  items: [], all: [], trash: [], filter: ls.get('hub.filter', 'all'), mode: 'line', tab: 'today',
   calMode: ls.get('hub.calMode', 'week'), calAnchor: today0(), showDone: false,
   preview: null, storeMode: 'loading', aiReady: false,
   mail: { checkedAt: null, checkedDay: null, results: [], dismissed: [], personalEmail: '' },
   flowMode: ls.get('hub.flowMode', 'day'), flowDate: today0(),
+  sync: { state: 'wait', at: null },
   mailLoaded: false, mailBusy: false, mailErr: '', mailMore: false, gcConfirm: false, gcBusy: false, gcErr: '',
 };
 let sample = null, dictation = null, mcp = null, autoMailTried = false;
 
 /* ---------- store: db capability, local fallback ---------- */
+const ARCHIVE_DAYS = 30;
+function splitItems(){ S.items = S.all.filter(i => !i.deletedAt); S.trash = S.all.filter(i => i.deletedAt); }
+let purging = false;
+async function purgeArchive(){
+  if (purging) return; purging = true;
+  try {
+    const cutoff = Date.now() - ARCHIVE_DAYS * 864e5;
+    for (const it of S.all.filter(i => i.deletedAt && Date.parse(i.deletedAt) < cutoff)) { try { await Store.remove(it.id); } catch {} }
+  } finally { purging = false; }
+}
 const Store = {
   db: null,
   async init(){
@@ -484,8 +508,9 @@ const Store = {
     const timer = setTimeout(() => { if (!done) setBanner('저장소에 아직 연결하지 못했어요. 네트워크를 확인해주세요.'); }, 10000);
     db.collection('items').onSnapshot(snap => {
       if (!snap.metadata.fromCache) { done = true; clearTimeout(timer); }
-      S.items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      S.storeMode = 'db'; render();
+      S.all = snap.docs.map(d => ({ id: d.id, ...d.data() })); splitItems();
+      if (!snap.metadata.fromCache) purgeArchive();
+      S.storeMode = 'db'; S.sync = { state: snap.metadata.fromCache ? 'wait' : (navigator.onLine === false ? 'off' : 'on'), at: snap.metadata.fromCache ? S.sync.at : new Date() }; render();
     }, err => {
       done = true; clearTimeout(timer);
       setBanner('저장소 연결이 끊겼어요 (' + esc(err.code) + '). 페이지를 다시 열어주세요.');
@@ -503,30 +528,27 @@ const Store = {
   },
   local(){
     this.db = null; S.storeMode = 'local';
-    S.items = ls.get('hub.items', []);
+    S.all = ls.get('hub.items', []); splitItems(); purgeArchive(); S.sync = { state: 'local', at: new Date() };
     S.mail = { ...S.mail, ...ls.get('hub.mail', {}) }; S.mailLoaded = true;
     render(); maybeAutoMail();
   },
-  saveLocal(){ ls.set('hub.items', S.items); render(); },
+  saveLocal(){ ls.set('hub.items', S.all); splitItems(); render(); },
   async add(data){
     data = { ...data, createdAt: new Date().toISOString() };
     if (this.db) { const ref = await this.db.collection('items').add(data); return ref.id; }
     const id = 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-    S.items.push({ id, ...data }); this.saveLocal(); return id;
+    S.all.push({ id, ...data }); this.saveLocal(); return id;
   },
   async update(id, patch){
     if (this.db) return this.db.doc('items/' + id).update(patch);
-    const it = S.items.find(x => x.id === id); if (it) Object.assign(it, patch); this.saveLocal();
+    const it = S.all.find(x => x.id === id); if (it) Object.assign(it, patch); this.saveLocal();
   },
   async remove(id){
     if (this.db) return this.db.doc('items/' + id).delete();
-    S.items = S.items.filter(x => x.id !== id); this.saveLocal();
+    S.all = S.all.filter(x => x.id !== id); this.saveLocal();
   },
-  async restore(it){
-    const { id, ...data } = it;
-    if (this.db) return this.db.doc('items/' + id).set(data);
-    S.items.push({ ...it }); this.saveLocal();
-  }
+  archive(id){ return this.update(id, { deletedAt: new Date().toISOString() }); },
+  unarchive(id){ return this.update(id, { deletedAt: null }); }
 };
 
 /* ---------- local Korean parser (instant, fallback) ---------- */
@@ -840,6 +862,10 @@ async function createGcal(id, it, attendees, meet){
 }
 
 /* ---------- mail briefing ---------- */
+const PRI = { high: 0, normal: 1, low: 2 };
+const MAIL_TAGS = { quote: '견적 요청', urgent: '긴급', contract: '계약', payment: '결제', meeting: '미팅', inquiry: '문의', followup: '후속', info: '참고' };
+const QUOTE_RE = /(quote|quotation|rfq|rfp|pricing|price list|rate card|estimate|견적|단가|요율|가격 문의|비용 문의)/i;
+const URGENT_RE = /(urgent|asap|immediately|right away|by today|by eod|긴급|급히|급한|오늘까지|오늘 중)/i;
 function slimThread(t){
   const m = (t.messages || [])[t.messages ? t.messages.length - 1 : 0] || {};
   const nm = (m.addressDisplayNames || [])[0];
@@ -870,8 +896,13 @@ async function checkMail(auto){
 - followup: Sean이 마지막으로 보냈는데 2일 넘게 답이 없어 다시 챙겨야 할 스레드
 - deadline: 마감, 일정, 기한이 걸린 요청
 제외: 뉴스레터, 광고, 자동 알림, 대량 발송, GloZ와 관련 없는 콜드 영업 메일 (잠재 고객이나 파트너의 실제 문의는 포함).
-JSON 배열만 답한다. 없으면 []. 형식:
-[{"id":"스레드 id","kind":"reply","priority":"high","why":"한 줄 이유","action":"할 일 제목, 동사로 끝냄","due":"YYYY-MM-DD 또는 null","area":"work"}]
+중요도 priority (GloZ는 자막·더빙·게임·웹툰 현지화 회사이고 Sean은 사업개발 책임자다):
+- high: 견적·Quote·RFQ·RFP·단가·가격 요청, urgent·ASAP·오늘까지·24시간 안 같은 긴급 요청, 계약·NDA·PO·결제·인보이스 문제, 투자자 연락, 고객의 결정·승인 요청, 마감이 2일 이내
+- normal: 일반 답장이 필요한 업무 메일, 일정 조율, 일반 문의, 후속 메일
+- low: 참고용(FYI), 단순 공유·업데이트, 마감 없는 가벼운 후속
+분류 tag: "quote"(견적 요청), "urgent"(긴급), "contract"(계약·NDA·PO), "payment"(결제·인보이스), "meeting"(미팅·일정), "inquiry"(신규 문의·리드), "followup"(후속), "info"(참고)
+JSON 배열만 답한다. 없으면 []. 높은 중요도부터 정렬. 형식:
+[{"id":"스레드 id","kind":"reply","priority":"high","tag":"quote","why":"한 줄 이유","action":"할 일 제목, 동사로 끝냄","due":"YYYY-MM-DD 또는 null","area":"work"}]
 
 [받은 메일]
 ${inbox.filter(t => !skip.has(t.id)).map(fmt).join('\n') || '없음'}
@@ -880,11 +911,19 @@ ${inbox.filter(t => !skip.has(t.id)).map(fmt).join('\n') || '없음'}
 ${waiting.filter(t => !skip.has(t.id)).map(fmt).join('\n') || '없음'}`;
     const out = await sample.json(prompt, { modelTier: 'default', cache: false });
     const byId = new Map(pool.map(t => [t.id, t]));
-    const results = (Array.isArray(out) ? out : []).filter(r => r && byId.has(r.id)).map(r => { const t = byId.get(r.id); return {
-      id: t.id, kind: ['reply','followup','deadline'].includes(r.kind) ? r.kind : 'reply', priority: r.priority === 'high' ? 'high' : 'normal',
-      why: String(r.why || '').slice(0, 200), action: String(r.action || t.subject).slice(0, 120), due: isYmd(r.due) ? r.due : null,
+    const results = (Array.isArray(out) ? out : []).filter(r => r && byId.has(r.id)).map(r => { const t = byId.get(r.id);
+      let priority = ['high','low'].includes(r.priority) ? r.priority : 'normal';
+      let tag = MAIL_TAGS[r.tag] ? r.tag : (r.kind === 'followup' ? 'followup' : 'inquiry');
+      const text = t.subject + ' ' + t.snippet;
+      if (QUOTE_RE.test(text)) { priority = 'high'; if (tag === 'inquiry' || tag === 'info' || tag === 'followup') tag = 'quote'; }
+      if (URGENT_RE.test(text)) { priority = 'high'; if (tag === 'inquiry' || tag === 'info') tag = 'urgent'; }
+      const due = isYmd(r.due) ? r.due : null;
+      if (due && due <= ymd(addDays(today0(), 2)) && priority === 'normal') priority = 'high';
+      return {
+      id: t.id, kind: ['reply','followup','deadline'].includes(r.kind) ? r.kind : 'reply', priority, tag,
+      why: String(r.why || '').slice(0, 200), action: String(r.action || t.subject).slice(0, 120), due,
       area: r.area === 'personal' ? 'personal' : 'work', subject: t.subject, from: t.name || t.from, url: t.url }; })
-      .sort((a,b) => (a.priority === 'high' ? 0 : 1) - (b.priority === 'high' ? 0 : 1));
+      .sort((a,b) => PRI[a.priority] - PRI[b.priority]);
     await Store.saveMail({ checkedAt: new Date().toISOString(), checkedDay: ymd(today0()), results });
   } catch (e) {
     const known = e && (mcpErr(e, 'Gmail'));
@@ -898,7 +937,7 @@ function maybeAutoMail(){
 }
 async function mailToTask(tid){
   const r = (S.mail.results || []).find(x => x.id === tid); if (!r) return;
-  await Store.add({ type: 'task', title: r.action, area: r.area, date: r.due, time: null, endTime: null, status: 'open', people: [], org: null,
+  await Store.add({ type: 'task', title: r.action, area: r.area, date: r.due, time: null, endTime: null, status: 'open', people: [], org: null, priority: r.priority || 'normal',
     notes: `메일: ${r.subject}\n보낸 사람: ${r.from}\n${r.why}`, mailUrl: r.url, source: '메일 브리핑', raw: '', links: [] });
   await Store.saveMail({ dismissed: [...(S.mail.dismissed || []), tid].slice(-300), results: S.mail.results.filter(x => x.id !== tid) });
   setStatus('메일을 할 일로 등록했어요.');
@@ -907,9 +946,14 @@ async function mailSkip(tid){
   await Store.saveMail({ dismissed: [...(S.mail.dismissed || []), tid].slice(-300), results: (S.mail.results || []).filter(x => x.id !== tid) });
 }
 function mailPanel(){
-  const res = (S.mail.results || []).filter(r => S.filter === 'all' || r.area === S.filter);
-  const shown = S.mailMore ? res : res.slice(0, 4);
-  const KIND = { reply: '답장', followup: '후속', deadline: '마감' };
+  const res = (S.mail.results || []).filter(r => S.filter === 'all' || r.area === S.filter).sort((a,b) => PRI[a.priority || 'normal'] - PRI[b.priority || 'normal']);
+  const KIND = { reply: '답장 필요', followup: '답 기다리는 중', deadline: '마감 있음' };
+  const grp = { high: res.filter(r => r.priority === 'high'), normal: res.filter(r => !r.priority || r.priority === 'normal'), low: res.filter(r => r.priority === 'low') };
+  const mrow = r => `<div class="mrow mp-${r.priority || 'normal'}"><span class="mtag ${r.priority === 'high' ? 'high' : r.priority === 'low' ? 'lo' : ''}">${esc(MAIL_TAGS[r.tag] || KIND[r.kind] || '메일')}</span>
+      <div class="mrow-main"><b>${esc(r.subject)}</b><span class="meta"><span>${esc(r.from)}</span><span>${KIND[r.kind] || ''}</span>${r.due ? `<span class="num ${r.due <= ymd(today0()) ? 'late' : ''}">${fmtDate(r.due)}까지</span>` : ''}${r.area === 'personal' ? '<span>개인</span>' : ''}</span><span class="meta">${esc(r.why)}</span></div>
+      <div class="mrow-act"><button class="btn sm" data-act="mail-task" data-tid="${esc(r.id)}">할 일로</button>${r.url ? `<a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">열기</a>` : ''}<button class="btn sm" data-act="mail-skip" data-tid="${esc(r.id)}" aria-label="넘기기">✕</button></div></div>`;
+  const normalShown = S.mailMore ? grp.normal : grp.normal.slice(0, Math.max(0, 4 - grp.high.length));
+  const hidden = grp.normal.length - normalShown.length + (S.mailMore ? 0 : grp.low.length);
   const when = S.mail.checkedAt ? (() => { const d = new Date(S.mail.checkedAt); return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())} 확인`; })() : '아직 확인 전';
   return `<section class="panel mail"><h2><span>메일 브리핑${res.length ? ` <span class="num" style="color:var(--muted);font-weight:500">${res.length}</span>` : ''}</span>
       <span class="h-actions"><span class="num">${S.mailBusy ? '확인 중…' : when}</span><button class="btn sm" data-act="mail-check" ${S.mailBusy ? 'disabled' : ''}>지금 확인</button></span></h2>
@@ -917,10 +961,10 @@ function mailPanel(){
     ${S.mailBusy && !res.length ? '<div class="empty">Shine이 최근 메일을 읽고 있어요… (20~60초)</div>' : ''}
     ${!S.mailBusy && S.mail.checkedAt && !res.length && !S.mailErr ? '<div class="empty">지금 챙길 메일이 없어요.</div>' : ''}
     ${!S.mail.checkedAt && !S.mailBusy && !S.mailErr ? '<div class="empty">매일 아침 첫 접속 때 자동으로 확인해요. 지금 보려면 "지금 확인"을 누르세요.</div>' : ''}
-    ${shown.map(r => `<div class="mrow"><span class="mtag ${r.priority === 'high' ? 'high' : ''}">${KIND[r.kind]}</span>
-      <div class="mrow-main"><b>${esc(r.subject)}</b><span class="meta"><span>${esc(r.from)}</span>${r.due ? `<span class="num">${fmtDate(r.due)}</span>` : ''}${r.area === 'personal' ? '<span>개인</span>' : ''}</span><span class="meta">${esc(r.why)}</span></div>
-      <div class="mrow-act"><button class="btn sm" data-act="mail-task" data-tid="${esc(r.id)}">할 일로</button>${r.url ? `<a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">열기</a>` : ''}<button class="btn sm" data-act="mail-skip" data-tid="${esc(r.id)}" aria-label="넘기기">✕</button></div></div>`).join('')}
-    ${res.length > 4 ? `<button class="btn sm" data-act="mail-more" style="align-self:flex-start;margin-top:4px">${S.mailMore ? '접기' : `${res.length - 4}개 더 보기`}</button>` : ''}
+    ${grp.high.length ? `<div class="group-label overdue">중요 <span class="num">${grp.high.length}</span></div>${grp.high.map(mrow).join('')}` : ''}
+    ${normalShown.length ? `<div class="group-label">보통 <span class="num">${grp.normal.length}</span></div>${normalShown.map(mrow).join('')}` : ''}
+    ${S.mailMore && grp.low.length ? `<div class="group-label">낮음 · 참고 <span class="num">${grp.low.length}</span></div>${grp.low.map(mrow).join('')}` : ''}
+    ${hidden > 0 || S.mailMore ? `<button class="btn sm" data-act="mail-more" style="align-self:flex-start;margin-top:6px">${S.mailMore ? '접기' : `${hidden}개 더 보기${grp.low.length ? ' (참고 메일 포함)' : ''}`}</button>` : ''}
     <details><summary>개인 메일 연결</summary>
       <div>개인 Gmail을 업무 Gmail로 자동 전달해두면 함께 확인해요. 전달받는 개인 주소를 적어두면 개인으로 분류해요.</div>
       <div class="set-row"><input id="set-pemail" type="email" value="${esc(S.mail.personalEmail || '')}" placeholder="개인 메일 주소" aria-label="개인 메일 주소"><button class="btn sm" data-act="save-pemail">저장</button></div>
@@ -1061,14 +1105,14 @@ function viewToday(){
   const list = visible(), g = taskGroups(list), t = ymd(today0());
   const notes = list.filter(i => i.type === 'note').sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||'')).slice(0, 3);
   const nTasks = g.overdue.length + g.today.length + g.week.length + g.nodate.length;
-  const mails = (S.mail.results || []).filter(r => S.filter === 'all' || r.area === S.filter).length;
+  const mres = (S.mail.results || []).filter(r => S.filter === 'all' || r.area === S.filter), mails = mres.length, mhigh = mres.filter(r => r.priority === 'high').length;
   const nx = nextEvent();
   return `<div class="bento ${S.flowMode !== 'day' ? 'wide' : ''}">
     <div class="stats">
       <button class="stat next" ${nx ? `data-act="open" data-id="${esc(nx.id)}"` : ''} style="text-align:left;color:inherit;font:inherit"><span class="lbl">다음 일정${nx && nx.date !== t ? ' · ' + fmtDate(nx.date) : ''}</span><b class="num">${nx ? nx.time : '—'}</b><span class="sub">${nx ? esc(nx.title) : '남은 일정이 없어요'}</span></button>
       <div class="stat"><span class="lbl">오늘 마감</span><b class="num">${g.today.length}</b></div>
       <div class="stat ${g.overdue.length ? 'alert' : ''}"><span class="lbl">지난 마감</span><b class="num">${g.overdue.length}</b></div>
-      <div class="stat"><span class="lbl">챙길 메일</span><b class="num">${mails}</b></div>
+      <div class="stat"><span class="lbl">챙길 메일</span><b class="num">${mails}</b>${mhigh ? `<span class="sub" style="color:var(--sun2);font-weight:600">중요 ${mhigh}</span>` : ""}</div>
     </div>
     ${focusTile()}
     ${flowPanel()}
@@ -1087,9 +1131,25 @@ function focusTile(){
   const list = visible(), t = ymd(today0()), lim = ymd(addDays(today0(), 14));
   const hi = list.filter(i => i.priority === 'high' && i.status !== 'done' && i.type !== 'note' && (i.type === 'task' || !i.date || (i.date >= t && i.date <= lim)))
     .sort((a,b) => (a.date || '9999').localeCompare(b.date || '9999') || (a.time || '99').localeCompare(b.time || '99'));
-  return `<section class="tile focus"><h2><span><span class="spark"><svg width="11" height="11" viewBox="0 0 32 32" fill="#fff" aria-hidden="true"><path d="M16 2l3 10.5L30 16l-11 3.5L16 30l-3-10.5L2 16l11-3.5z"/></svg></span>중요한 일</span><span class="h-actions num">${hi.length ? hi.length + '개' : ''}</span></h2>
+  const hm = (S.mail.results || []).filter(r => r.priority === 'high' && (S.filter === 'all' || r.area === S.filter)).slice(0, 3);
+  const mailRows = hm.map(r => `<div class="row ${r.area}"><span class="kind">메일</span><a class="row-main" href="${esc(r.url || '#')}" target="_blank" rel="noopener" style="text-decoration:none"><span class="title-line"><span class="title">${esc(r.subject)}</span></span><span class="meta"><span>${esc(MAIL_TAGS[r.tag] || '메일')}</span><span>${esc(r.from)}</span>${r.due ? `<span class="num">${fmtDate(r.due)}까지</span>` : ''}</span></a></div>`).join('');
+  return `<section class="tile focus"><h2><span><span class="spark"><svg width="11" height="11" viewBox="0 0 32 32" fill="#fff" aria-hidden="true"><path d="M16 2l3 10.5L30 16l-11 3.5L16 30l-3-10.5L2 16l11-3.5z"/></svg></span>중요한 일</span><span class="h-actions num">${hi.length + hm.length ? (hi.length + hm.length) + '개' : ''}</span></h2>
     ${hi.length ? hi.slice(0, 6).map(i => rowHtml(i, { noBadge: true })).join('') + (hi.length > 6 ? `<div class="more">외 ${hi.length - 6}개는 할 일 탭에서 볼 수 있어요</div>` : '')
-      : '<div class="empty">아직 중요 표시한 일이 없어요. 항목 옆 ☆을 누르거나 "중요"라고 말하면 여기에 올라와요.</div>'}
+      : (hm.length ? '' : '<div class="empty">아직 중요 표시한 일이 없어요. 항목 옆 ☆을 누르거나 "중요"라고 말하면 여기에 올라와요.</div>')}
+    ${hm.length ? `<div class="group-label">중요 메일 <span class="num">${hm.length}</span></div>${mailRows}` : ''}
+  </section>`;
+}
+function viewArchive(){
+  const list = [...S.trash].sort((a,b) => (b.deletedAt || '').localeCompare(a.deletedAt || ''));
+  const KIND = { task: '할 일', event: '일정', note: '메모' };
+  const left = it => Math.max(0, ARCHIVE_DAYS - Math.floor((Date.now() - Date.parse(it.deletedAt)) / 864e5));
+  return `<section class="tile"><h2><span>보관함 <span class="num" style="color:var(--muted);font-weight:500">${list.length || ''}</span></span>
+      ${list.length ? '<button class="btn sm danger" data-act="ar-empty">보관함 비우기</button>' : ''}</h2>
+    <div class="empty" style="padding-top:0">삭제한 항목은 ${ARCHIVE_DAYS}일 동안 여기 보관된 뒤 자동으로 영구 삭제돼요.</div>
+    ${list.length ? list.map(it => { const d = left(it), dd = new Date(it.deletedAt); return `<div class="mrow arow"><span class="mtag ${d <= 3 ? 'high' : ''}">${d}일</span>
+      <div class="mrow-main"><b>${esc(it.title)}</b><span class="meta"><span>${KIND[it.type] || ''}</span>${it.date ? `<span class="num">${fmtDate(it.date)}</span>` : ''}<span>${dd.getMonth()+1}/${dd.getDate()} 삭제</span><span>${d ? d + '일 후 영구 삭제' : '곧 영구 삭제'}</span></span></div>
+      <div class="mrow-act"><button class="btn sm" data-act="ar-restore" data-id="${esc(it.id)}">복원</button><button class="btn sm danger" data-act="ar-purge" data-id="${esc(it.id)}">영구 삭제</button></div></div>`; }).join('')
+      : '<div class="empty">보관함이 비어 있어요.</div>'}
   </section>`;
 }
 function greetText(){
@@ -1110,7 +1170,7 @@ function tick(){
   const g = greetText(); $('#greet-h').textContent = g.head; $('#greet-s').innerHTML = g.sub;
   const nl = document.getElementById('nowline'), tl = document.getElementById('tl');
   if (nl && tl) { const m = h*60 + n.getMinutes(), sc = Number(tl.dataset.scale || 1); nl.style.top = ((m - Number(tl.dataset.start)) / 60 * hourPx() * sc) + 'px'; const sp = nl.querySelector('span'); if (sp && sp.textContent) sp.textContent = `${pad(h)}:${pad(n.getMinutes())}`; }
-  if (tick.day && tick.day !== ymd(today0())) { S.flowDate = today0(); render(); }
+  if (tick.day && tick.day !== ymd(today0())) { S.flowDate = today0(); purgeArchive(); render(); }
   tick.day = ymd(today0());
 }
 function chipHtml(it){
@@ -1236,7 +1296,7 @@ async function saveDialog(close){
   if (it.example) patch.example = false;
   await Store.update(it.id, patch); if (close !== false) closeDialog();
 }
-function closeDialog(){ openId = null; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); }
+function closeDialog(){ dlgDirty = false; openId = null; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); }
 async function toggleDone(id){
   const it = S.items.find(x => x.id === id); if (!it) return;
   const done = it.status !== 'done';
@@ -1244,7 +1304,9 @@ async function toggleDone(id){
 }
 
 /* ---------- render ---------- */
+let dlgDirty = false, renderQueued = false;
 function render(){
+  if (sw && sw.mode === 'swipe') { renderQueued = true; return; }
   const t = today0();
   $('#today-label').textContent = `${t.getFullYear()}년 ${t.getMonth()+1}월 ${t.getDate()}일 ${WD[t.getDay()]}요일`;
   $('#today-label').textContent += ` · ${tzName(LTZ)}`;
@@ -1255,15 +1317,16 @@ function render(){
   $('#cnt-tasks').textContent = openTasks ? ' ' + openTasks : '';
   const nNotes = vis.filter(i => i.type === 'note').length;
   $('#cnt-notes').textContent = nNotes ? ' ' + nNotes : '';
+  $('#cnt-arch').textContent = S.trash.length ? ' ' + S.trash.length : '';
   const examples = S.items.filter(i => i.example).length;
   if (S.storeMode === 'local') setBanner('이 화면에서는 저장소에 연결되지 않아 이 브라우저에만 저장돼요. claude.ai에서 열면 어디서든 같은 데이터를 볼 수 있어요.');
   else if (examples) setBanner(`<span>예시 ${examples}개 · 둘러보신 뒤 지워주세요</span><button class="btn" data-act="clear-examples">예시 지우기</button>`);
   else if (S.storeMode === 'db') setBanner('');
   const view = $('#view');
   if (S.storeMode === 'loading') { view.innerHTML = '<div class="panel"><div class="empty">일정과 할 일을 불러오는 중이에요…</div></div>'; return; }
-  view.innerHTML = S.tab === 'tasks' ? viewTasks() : S.tab === 'notes' ? viewNotes() : viewToday();
-  if (openId) renderDialog();
-  tick();
+  view.innerHTML = S.tab === 'tasks' ? viewTasks() : S.tab === 'notes' ? viewNotes() : S.tab === 'archive' ? viewArchive() : viewToday();
+  if (openId) { if (!S.items.find(x => x.id === openId)) closeDialog(); else if (!dlgDirty) renderDialog(); }
+  tick(); if (typeof liveText === 'function') liveText();
 }
 
 /* ---------- events ---------- */
@@ -1274,11 +1337,14 @@ document.addEventListener('click', async e => {
   const act = el.dataset.act, id = el.dataset.id;
   if (act === 'dlg-bg' && e.target !== el) return;
   switch (act) {
-    case 'open': openId = id; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); setTimeout(() => { const f = document.getElementById('f-title'); f && f.focus(); }, 0); break;
+    case 'open': dlgDirty = false; openId = id; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); setTimeout(() => { const f = document.getElementById('f-title'); f && f.focus(); }, 0); break;
     case 'toggle': toggleDone(id); break;
-    case 'cf-no': if (act === 'cf-no' && el.classList.contains('overlay') && e.target !== el) return; if (pendingDelete) snapBack(pendingDelete.w); pendingDelete = null; renderConfirm(); break;
-    case 'cf-yes': { const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P) animateOut(P.w, () => doDelete(P.it)); break; }
-    case 'undo-del': { const it = lastDeleted; lastDeleted = null; clearTimeout(toastTimer); $('#toast-root').innerHTML = ''; if (it) { await Store.restore(it); setStatus(''); } break; }
+    case 'cf-no': { if (el.classList.contains('overlay') && e.target !== el) return; const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P && P.onNo) P.onNo(); break; }
+    case 'cf-yes': { const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P && P.onYes) P.onYes(); break; }
+    case 'undo-del': { const it = lastDeleted; lastDeleted = null; clearTimeout(toastTimer); $('#toast-root').innerHTML = ''; if (it) await Store.unarchive(it.id); break; }
+    case 'ar-restore': { const it = S.trash.find(x => x.id === id); if (it) { await Store.unarchive(id); setStatus(`"${it.title}"을(를) 복원했어요.`); } break; }
+    case 'ar-purge': { const it = S.trash.find(x => x.id === id); if (it) askConfirm({ icon: 'trash', title: '영구 삭제할까요?', body: `"${it.title}"은(는) 되돌릴 수 없어요.`, yes: '영구 삭제', onYes: () => Store.remove(id) }); break; }
+    case 'ar-empty': askConfirm({ icon: 'trash', title: '보관함을 비울까요?', body: `${S.trash.length}개 항목이 영구 삭제되고 되돌릴 수 없어요.`, yes: '모두 삭제', onYes: async () => { for (const it of [...S.trash]) await Store.remove(it.id); } }); break;
     case 'star': { const it = S.items.find(x => x.id === id); if (it) Store.update(id, { priority: it.priority === 'high' ? 'normal' : 'high' }); break; }
     case 'pv-commit': commitPreview(); break;
     case 'pv-cancel': parseSeq++; S.preview = null; renderPreview(); setStatus(''); break;
@@ -1298,8 +1364,9 @@ document.addEventListener('click', async e => {
     case 'dlg-done': await toggleDone(openId); closeDialog(); break;
     case 'del': confirmDel = true; renderDialog(); break;
     case 'del-no': confirmDel = false; renderDialog(); break;
-    case 'del-yes': { const x = openId; closeDialog(); await Store.remove(x); break; }
+    case 'del-yes': { const it = S.items.find(y => y.id === openId); closeDialog(); if (it) await doDelete(it); break; }
     case 'mail-check': checkMail(false); break;
+    case 'sync-now': refreshNow(true); setStatus('최신 상태로 새로 고쳤어요.'); setTimeout(() => setStatus(''), 2500); break;
     case 'mail-task': el.disabled = true; mailToTask(el.dataset.tid); break;
     case 'mail-skip': mailSkip(el.dataset.tid); break;
     case 'mail-more': S.mailMore = !S.mailMore; render(); break;
@@ -1320,7 +1387,7 @@ document.addEventListener('click', async e => {
   }
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && pendingDelete) { snapBack(pendingDelete.w); pendingDelete = null; renderConfirm(); return; }
+  if (e.key === 'Escape' && pendingDelete) { const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P.onNo) P.onNo(); return; }
   if (e.key === 'Escape' && openId) { closeDialog(); return; }
   if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); (S.mode==='line' ? $('#quick') : $('#meeting')).focus(); }
 });
@@ -1348,7 +1415,7 @@ function setMode(m){
   $('#cap-hint').textContent = m === 'line' ? '예: 다음주 수요일 OOO에게 이메일 전달 · 화요일 한국시간 오후 2시 CJ ENM 화상 미팅' : '메모를 붙여넣으면 요약, 후속 액션, 다음 미팅을 뽑아줘요';
   (m === 'line' ? $('#quick') : $('#meeting')).focus();
 }
-function route(){ let h = (location.hash || '#today').slice(1); if (h === 'calendar') { h = 'today'; if (S.flowMode === 'day') S.flowMode = 'week'; } S.tab = ['today','tasks','notes'].includes(h) ? h : 'today'; render(); }
+function route(){ let h = (location.hash || '#today').slice(1); if (h === 'calendar') { h = 'today'; if (S.flowMode === 'day') S.flowMode = 'week'; } S.tab = ['today','tasks','notes','archive'].includes(h) ? h : 'today'; render(); }
 window.matchMedia('(max-width:699px)').addEventListener('change', () => render());
 window.addEventListener('hashchange', route);
 const origRender = render;
@@ -1381,7 +1448,7 @@ function wireDictation(){
 }
 
 /* ---------- swipe to delete ---------- */
-let sw = null, suppressClick = false, toastTimer = null, lastDeleted = null, pendingDelete = null;
+var sw = null; let suppressClick = false, toastTimer = null, lastDeleted = null, pendingDelete = null;
 document.addEventListener('pointerdown', e => {
   const w = e.target.closest('.swipe'); if (!w || (e.pointerType === 'mouse' && e.button !== 0)) return;
   sw = { w, row: w.querySelector('.row'), x: e.clientX, y: e.clientY, dx: 0, mode: null, pid: e.pointerId, id: w.dataset.swipe };
@@ -1403,6 +1470,7 @@ function endSwipe(e){
   if (!sw || (e && e.pointerId !== sw.pid)) return;
   const s = sw; sw = null;
   if (s.mode !== 'swipe') return;
+  if (renderQueued) { renderQueued = false; setTimeout(render, 260); }
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
   if (s.w.classList.contains('armed') && e.type === 'pointerup') swipeDelete(s);
   else snapBack(s.w);
@@ -1413,7 +1481,7 @@ document.addEventListener('click', e => { if (suppressClick) { e.stopPropagation
 function snapBack(w){ const r = w.querySelector('.row'); if (r) r.style.transform = ''; w.classList.remove('armed'); setTimeout(() => w.classList.remove('active'), 240); }
 function swipeDelete(s){
   const it = S.items.find(x => x.id === s.id); if (!it) { snapBack(s.w); return; }
-  if (it.priority === 'high') { pendingDelete = { it, w: s.w }; renderConfirm(); return; }
+  if (it.priority === 'high') { askConfirm({ title: '중요한 항목이에요', body: `"${it.title}"을(를) 정말 삭제할까요? 보관함에 30일 동안 남아요.`, onYes: () => animateOut(s.w, () => doDelete(it)), onNo: () => snapBack(s.w) }); return; }
   animateOut(s.w, () => doDelete(it));
 }
 function animateOut(w, done){
@@ -1422,22 +1490,26 @@ function animateOut(w, done){
 }
 async function doDelete(it){
   lastDeleted = { ...it };
-  await Store.remove(it.id);
-  showToast(`"${it.title.length > 18 ? it.title.slice(0, 18) + '…' : it.title}" 삭제했어요`);
+  await Store.archive(it.id);
+  showToast(`"${it.title.length > 16 ? it.title.slice(0, 16) + '…' : it.title}" 보관함으로 옮겼어요`);
 }
 function showToast(msg){
   clearTimeout(toastTimer);
   $('#toast-root').innerHTML = `<div class="toast"><span>${esc(msg)}</span><button data-act="undo-del">되돌리기</button></div>`;
   toastTimer = setTimeout(() => { $('#toast-root').innerHTML = ''; lastDeleted = null; }, 5000);
 }
+function askConfirm(opts){ pendingDelete = opts; renderConfirm(); }
 function renderConfirm(){
   const root = $('#confirm-root'); const P = pendingDelete;
   if (!P) { root.innerHTML = ''; return; }
+  const icon = P.icon === 'trash'
+    ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'
+    : '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>';
   root.innerHTML = `<div class="overlay center" data-act="cf-no"><div class="dialog confirm" role="alertdialog" aria-modal="true" aria-labelledby="cf-h">
-    <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></div>
-    <h3 id="cf-h">중요한 항목이에요</h3>
-    <p>"${esc(P.it.title)}"을(를) 정말 삭제할까요?</p>
-    <div class="dlg-actions"><button class="btn" data-act="cf-no">취소</button><button class="btn danger-solid" data-act="cf-yes">삭제</button></div>
+    <div class="ico">${icon}</div>
+    <h3 id="cf-h">${esc(P.title)}</h3>
+    <p>${esc(P.body)}</p>
+    <div class="dlg-actions"><button class="btn" data-act="cf-no">취소</button><button class="btn danger-solid" data-act="cf-yes">${esc(P.yes || '삭제')}</button></div>
   </div></div>`;
   setTimeout(() => { const b = root.querySelector('[data-act="cf-no"].btn'); b && b.focus(); }, 0);
 }
@@ -1445,6 +1517,28 @@ function renderConfirm(){
 /* ---------- boot ---------- */
 setMode('line'); $('#quick').blur();
 setInterval(tick, 20000);
+document.getElementById('dlg-root').addEventListener('input', () => { dlgDirty = true; });
+function liveText(){
+  const el = $('#live'); if (!el) return;
+  const st = navigator.onLine === false ? 'off' : S.sync.state;
+  el.className = 'live ' + (st === 'on' ? 'on' : st === 'off' ? 'off' : st === 'local' ? '' : 'wait');
+  const ago = S.sync.at ? Math.floor((Date.now() - S.sync.at.getTime()) / 60000) : null;
+  $('#live-t').textContent = st === 'off' ? '오프라인' : st === 'local' ? '이 기기에만 저장' : st === 'wait' ? '연결 중' : '실시간';
+  el.title = (ago == null ? '아직 동기화 전' : ago < 1 ? '방금 동기화됨' : `${ago}분 전 동기화`) + ' · 눌러서 지금 새로 고침';
+}
+const MAIL_EVERY = 60 * 60000;
+function mailStale(){ const at = S.mail.checkedAt ? Date.parse(S.mail.checkedAt) : 0; const h = new Date().getHours(); return Date.now() - at > MAIL_EVERY && h >= 7 && h < 21; }
+function refreshNow(manual){
+  if (S.flowDate && ymd(S.flowDate) !== ymd(today0()) && !manual && S.flowMode === 'day' && tick.day !== ymd(today0())) S.flowDate = today0();
+  tick(); render(); liveText();
+  if (S.mailLoaded && mcp && sample && (manual ? false : mailStale())) checkMail(true);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshNow(false); });
+window.addEventListener('focus', () => refreshNow(false));
+window.addEventListener('online', () => { liveText(); refreshNow(false); });
+window.addEventListener('offline', liveText);
+setInterval(() => { liveText(); if (document.visibilityState === 'visible' && S.mailLoaded && mcp && sample && !S.mailBusy && mailStale()) checkMail(true); }, 5 * 60000);
+setInterval(liveText, 30000);
 route();
 Store.init();
 (async () => {

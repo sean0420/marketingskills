@@ -35,8 +35,9 @@ Shine은 HTML 파일 하나(`app/shine.html`)로 된 claude.ai 아티팩트다. 
 | links | [noteId] | 미팅 메모와 후속 항목 연결 |
 | source, raw | Shine 해석, 원문 | 출처와 원문 입력 |
 | example | true | 예시 항목 표시 |
+| deletedAt | 2026-11-16T15:00:00Z | 보관함으로 옮긴 시각. 값이 있으면 보관함에만 보이고, 30일이 지나면 앱이 열릴 때 영구 삭제 |
 
-`mail/latest` 문서: `checkedAt`, `checkedDay`, `results[]`(id, kind, priority, why, action, due, area, subject, from, url), `dismissed[]`(넘긴 스레드), `personalEmail`.
+`mail/latest` 문서: `checkedAt`, `checkedDay`, `results[]`(id, kind, priority, tag, why, action, due, area, subject, from, url), `dismissed[]`(넘긴 스레드), `personalEmail`.
 
 ## 한 줄 입력 처리 순서
 
@@ -55,8 +56,18 @@ Shine은 HTML 파일 하나(`app/shine.html`)로 된 claude.ai 아티팩트다. 
 ## 메일 브리핑
 
 1. Gmail에서 최근 4일 받은편지함(광고·소셜 제외)과, 2~10일 전 내가 마지막으로 보낸 스레드를 가져온다.
-2. Shine AI가 답장 필요 / 후속 / 마감으로 분류하고 이유와 할 일 제목을 만든다. 뉴스레터, 광고, 무관한 콜드 영업은 뺀다.
+2. Shine AI가 답장 필요 / 후속 / 마감으로 분류하고, 중요도(높음·보통·낮음)와 태그(견적 요청·긴급·계약·결제·미팅·문의·후속·참고), 이유, 할 일 제목을 만든다. 뉴스레터, 광고, 무관한 콜드 영업은 뺀다.
+   - 안전장치 규칙: 제목·미리보기에 quote, RFQ, RFP, rate card, 견적, 단가 등이 있으면 무조건 높음 + 견적 요청. urgent, ASAP, 긴급, 오늘까지 등이 있으면 높음 + 긴급. 마감이 2일 이내면 높음.
 3. 결과는 `mail/latest`에 저장한다. 하루 첫 접속(오전 5시 이후)에 자동 실행되고, "지금 확인"으로 다시 돌린다.
+
+## 실시간 반영
+
+- 데이터는 저장소의 실시간 구독으로 받는다. 다른 기기에서 바꾸면 보통 몇 초 안에 반영되고, 실시간 연결이 안 되면 약 30초마다 다시 가져온다.
+- 화면 오른쪽 위 표시: 실시간(초록) / 연결 중(노랑) / 오프라인(빨강). 누르면 즉시 새로 고친다.
+- 화면을 다시 켜거나 앱으로 돌아오면 시계, 타임라인, 인사말을 다시 그린다.
+- 메일 브리핑은 앱이 열려 있는 동안 7~21시 사이 1시간마다 자동 확인한다 (Shine AI 사용량을 씀).
+- 편집 창에서 입력 중이거나 항목을 밀고 있을 때는 다른 기기의 변경이 화면을 덮어쓰지 않도록 갱신을 미룬다.
+- 앱 코드가 새로 배포되면 열린 화면에 자동으로 적용된다.
 
 ## Google 캘린더 미팅 생성
 
