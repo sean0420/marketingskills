@@ -869,27 +869,17 @@ const URGENT_RE = /(urgent|asap|immediately|right away|by today|by eod|긴급|�
 function slimThread(t){
   const m = (t.messages || [])[t.messages ? t.messages.length - 1 : 0] || {};
   const nm = (m.addressDisplayNames || [])[0];
-  return { id: t.id, n: t.messageCount || 1, from: m.sender || '', name: nm ? decodeHtml(nm.displayName) : '', to: m.toRecipients || [], cc: m.ccRecipients || [],
+  return { id: t.id, mid: m.id || m.date || '', n: t.messageCount || 1, from: m.sender || '', name: nm ? decodeHtml(nm.displayName) : '', to: m.toRecipients || [], cc: m.ccRecipients || [],
     subject: decodeHtml(m.subject || '(제목 없음)'), snippet: decodeHtml(m.snippet || '').slice(0, 280), date: m.date || '',
     unread: (m.labelIds || []).includes('UNREAD'), url: t.viewUrl || m.viewUrl || '' };
 }
-async function checkMail(auto){
-  if (S.mailBusy) return;
-  if (!mcp || !sample) { S.mailErr = '메일 확인은 claude.ai에서 열었을 때만 쓸 수 있어요.'; render(); return; }
-  S.mailBusy = true; S.mailErr = ''; render();
-  try {
-    const call = q => mcp.callTool('Gmail', 'search_threads', { query: q, pageSize: 30, view: 'THREAD_VIEW_SUMMARY' }, { cache: false }).then(r => ((r.payload || {}).threads || []).map(slimThread));
-    const [inbox, sent] = await Promise.all([
-      call('in:inbox newer_than:4d -category:promotions -category:social'),
-      call('in:sent newer_than:10d older_than:2d')]);
-    const counts = {}; sent.forEach(t => { counts[t.from] = (counts[t.from] || 0) + 1; });
-    const me = Object.keys(counts).sort((a,b) => counts[b] - counts[a])[0] || '';
-    const waiting = sent.filter(t => me && t.from === me);
-    const skip = new Set(S.mail.dismissed || []);
-    const pool = [...inbox, ...waiting].filter(t => !skip.has(t.id));
-    if (!pool.length) { await Store.saveMail({ checkedAt: new Date().toISOString(), checkedDay: ymd(today0()), results: [] }); return; }
-    const fmt = t => `- id:${t.id} | 보낸이:${t.name ? t.name + ' ' : ''}<${t.from}> | 받는이:${t.to.join(', ')} | 제목:${t.subject} | 날짜:${t.date} | 메시지수:${t.n}${t.unread ? ' | 안읽음' : ''}\n  미리보기:${t.snippet}`;
-    const prompt = `너는 GloZ Inc. 사업개발 디렉터 Sean Park의 비서 Shine이다. 아래 메일 목록에서 Sean이 놓치면 안 되는 것만 골라라.
+const INBOX_Q = 'in:inbox newer_than:4d -category:promotions -category:social';
+const gmailThreads = (q, n) => mcp.callTool('Gmail', 'search_threads', { query: q, pageSize: n || 30, view: 'THREAD_VIEW_SUMMARY' }, { cache: false }).then(r => ((r.payload || {}).threads || []).map(slimThread));
+async function analyzeThreads(inbox, waiting, me){
+  const pool = [...inbox, ...waiting];
+  if (!pool.length) return [];
+  const fmt = t => `- id:${t.id} | 보낸이:${t.name ? t.name + ' ' : ''}<${t.from}> | 받는이:${t.to.join(', ')} | 제목:${t.subject} | 날짜:${t.date} | 메시지수:${t.n}${t.unread ? ' | 안읽음' : ''}\n  미리보기:${t.snippet}`;
+  const prompt = `너는 GloZ Inc. 사업개발 디렉터 Sean Park의 비서 Shine이다. 아래 메일 목록에서 Sean이 놓치면 안 되는 것만 골라라.
 오늘: ${todayLine()} (Sean은 달라스, America/Chicago). Sean의 업무 주소: ${me || '알 수 없음'}. 개인 메일 주소: ${S.mail.personalEmail || '없음'} (이 주소로 온 메일은 area "personal").
 분류:
 - reply: Sean의 답변, 결정, 자료가 필요한 메일
@@ -905,31 +895,78 @@ JSON 배열만 답한다. 없으면 []. 높은 중요도부터 정렬. 형식:
 [{"id":"스레드 id","kind":"reply","priority":"high","tag":"quote","why":"한 줄 이유","action":"할 일 제목, 동사로 끝냄","due":"YYYY-MM-DD 또는 null","area":"work"}]
 
 [받은 메일]
-${inbox.filter(t => !skip.has(t.id)).map(fmt).join('\n') || '없음'}
+${inbox.map(fmt).join('\n') || '없음'}
 
 [Sean이 보내고 답을 기다리는 스레드]
-${waiting.filter(t => !skip.has(t.id)).map(fmt).join('\n') || '없음'}`;
-    const out = await sample.json(prompt, { modelTier: 'default', cache: false });
-    const byId = new Map(pool.map(t => [t.id, t]));
-    const results = (Array.isArray(out) ? out : []).filter(r => r && byId.has(r.id)).map(r => { const t = byId.get(r.id);
-      let priority = ['high','low'].includes(r.priority) ? r.priority : 'normal';
-      let tag = MAIL_TAGS[r.tag] ? r.tag : (r.kind === 'followup' ? 'followup' : 'inquiry');
-      const text = t.subject + ' ' + t.snippet;
-      if (QUOTE_RE.test(text)) { priority = 'high'; if (tag === 'inquiry' || tag === 'info' || tag === 'followup') tag = 'quote'; }
-      if (URGENT_RE.test(text)) { priority = 'high'; if (tag === 'inquiry' || tag === 'info') tag = 'urgent'; }
-      const due = isYmd(r.due) ? r.due : null;
-      if (due && due <= ymd(addDays(today0(), 2)) && priority === 'normal') priority = 'high';
-      return {
-      id: t.id, kind: ['reply','followup','deadline'].includes(r.kind) ? r.kind : 'reply', priority, tag,
-      why: String(r.why || '').slice(0, 200), action: String(r.action || t.subject).slice(0, 120), due,
-      area: r.area === 'personal' ? 'personal' : 'work', subject: t.subject, from: t.name || t.from, url: t.url }; })
-      .sort((a,b) => PRI[a.priority] - PRI[b.priority]);
-    await Store.saveMail({ checkedAt: new Date().toISOString(), checkedDay: ymd(today0()), results });
-  } catch (e) {
-    const known = e && (mcpErr(e, 'Gmail'));
-    S.mailErr = known || (e && e.code === 'not_granted' ? 'Shine 사용이 허용되지 않았어요.' : e && e.code === 'invalid_json' ? 'Shine이 메일 정리 결과를 제대로 만들지 못했어요. 다시 확인해주세요.' : '메일을 확인하지 못했어요. 잠시 뒤 다시 시도해주세요.');
-  } finally { S.mailBusy = false; render(); }
+${waiting.map(fmt).join('\n') || '없음'}`;
+  const out = await sample.json(prompt, { modelTier: inbox.length + waiting.length <= 3 ? 'quick' : 'default', cache: false });
+  const byId = new Map(pool.map(t => [t.id, t]));
+  return (Array.isArray(out) ? out : []).filter(r => r && byId.has(r.id)).map(r => { const t = byId.get(r.id);
+    let priority = ['high','low'].includes(r.priority) ? r.priority : 'normal';
+    let tag = MAIL_TAGS[r.tag] ? r.tag : (r.kind === 'followup' ? 'followup' : 'inquiry');
+    const text = t.subject + ' ' + t.snippet;
+    if (QUOTE_RE.test(text)) { priority = 'high'; if (tag === 'inquiry' || tag === 'info' || tag === 'followup') tag = 'quote'; }
+    if (URGENT_RE.test(text)) { priority = 'high'; if (tag === 'inquiry' || tag === 'info') tag = 'urgent'; }
+    const due = isYmd(r.due) ? r.due : null;
+    if (due && due <= ymd(addDays(today0(), 2)) && priority === 'normal') priority = 'high';
+    return {
+    id: t.id, kind: ['reply','followup','deadline'].includes(r.kind) ? r.kind : 'reply', priority, tag,
+    why: String(r.why || '').slice(0, 200), action: String(r.action || t.subject).slice(0, 120), due,
+    area: r.area === 'personal' ? 'personal' : 'work', subject: t.subject, from: t.name || t.from, url: t.url }; });
 }
+const sortMail = list => list.sort((a,b) => PRI[a.priority || 'normal'] - PRI[b.priority || 'normal'] || (b.addedAt || '').localeCompare(a.addedAt || ''));
+const trimSeen = o => { const k = Object.keys(o); return k.length > 400 ? Object.fromEntries(k.slice(-400).map(x => [x, o[x]])) : o; };
+const mailErrText = e => mcpErr(e, 'Gmail') || (e && e.code === 'not_granted' ? 'Shine 사용이 허용되지 않았어요.' : e && e.code === 'invalid_json' ? 'Shine이 메일 정리 결과를 제대로 만들지 못했어요. 다시 확인해주세요.' : '메일을 확인하지 못했어요. 잠시 뒤 다시 시도해주세요.');
+async function checkMail(auto){
+  if (S.mailBusy) return;
+  if (!mcp || !sample) { S.mailErr = '메일 확인은 claude.ai에서 열었을 때만 쓸 수 있어요.'; render(); return; }
+  S.mailBusy = true; S.mailBusyFull = true; S.mailErr = ''; render();
+  try {
+    const [inbox, sent] = await Promise.all([gmailThreads(INBOX_Q), gmailThreads('in:sent newer_than:10d older_than:2d')]);
+    const counts = {}; sent.forEach(t => { counts[t.from] = (counts[t.from] || 0) + 1; });
+    const me = Object.keys(counts).sort((a,b) => counts[b] - counts[a])[0] || S.mail.me || '';
+    const skip = new Set(S.mail.dismissed || []);
+    const waiting = sent.filter(t => me && t.from === me && !skip.has(t.id));
+    const fresh = inbox.filter(t => !skip.has(t.id) && t.from !== me);
+    const now = new Date().toISOString(), prev = new Map((S.mail.results || []).map(r => [r.id, r]));
+    const results = (await analyzeThreads(fresh, waiting, me)).map(r => { const o = prev.get(r.id) || {}; return { ...r, addedAt: o.addedAt || now, isNew: !!o.isNew }; });
+    const seen = { ...(S.mail.seen || {}) }; inbox.forEach(t => { seen[t.id] = t.mid; });
+    await Store.saveMail({ checkedAt: now, checkedDay: ymd(today0()), results: sortMail(results), me, seen: trimSeen(seen) });
+  } catch (e) { S.mailErr = mailErrText(e); }
+  finally { S.mailBusy = false; S.mailBusyFull = false; render(); }
+}
+/* live inbox watch: a cheap Gmail read every 10 s; Shine AI runs only on new or changed threads */
+const POLL_MS = 10000;
+let pollTimer = null, pollDelay = POLL_MS, polling = false, pollStopped = false;
+async function pollMail(){
+  if (polling || pollStopped || !mcp || !sample || !S.mailLoaded || S.mailBusy || document.visibilityState !== 'visible') return;
+  polling = true;
+  try {
+    const ts = await gmailThreads(INBOX_Q, 25);
+    S.mailLive = Date.now(); pollDelay = POLL_MS; if (S.mailErr) { S.mailErr = ''; }
+    if (!S.mail.seen) { await Store.saveMail({ seen: Object.fromEntries(ts.map(t => [t.id, t.mid])) }); return; }
+    const me = S.mail.me || '', skip = new Set(S.mail.dismissed || []);
+    let results = [...(S.mail.results || [])], changed = false;
+    if (me) { const answered = new Set(ts.filter(t => t.from === me).map(t => t.id)); const n0 = results.length; results = results.filter(r => !(answered.has(r.id) && r.kind !== 'followup')); changed = results.length !== n0; }
+    const fresh = ts.filter(t => S.mail.seen[t.id] !== t.mid && !skip.has(t.id) && t.from !== me);
+    const seen = { ...S.mail.seen }; ts.forEach(t => { seen[t.id] = t.mid; });
+    if (fresh.length) {
+      S.mailBusy = true; renderMailOnly();
+      const now = new Date().toISOString();
+      const add = (await analyzeThreads(fresh, [], me)).map(r => ({ ...r, addedAt: now, isNew: true }));
+      const ids = new Set(fresh.map(t => t.id));
+      results = [...add, ...results.filter(r => !ids.has(r.id))]; changed = true;
+    }
+    if (changed || fresh.length || Object.keys(seen).length !== Object.keys(S.mail.seen).length) await Store.saveMail({ results: sortMail(results), seen: trimSeen(seen) });
+    else renderMailOnly();
+  } catch (e) {
+    const c = e && e.code;
+    if (['server_not_connected','needs_reauth','not_in_manifest','blocked_by_policy','not_granted','capability_disabled','selection_required'].includes(c)) { pollStopped = true; S.mailErr = mailErrText(e); renderMailOnly(); }
+    else pollDelay = Math.min(120000, Math.max(30000, (e && e.retryAfterMs) || 0, pollDelay * 2));
+  } finally { if (S.mailBusy && !S.mailBusyFull) { S.mailBusy = false; renderMailOnly(); } polling = false; }
+}
+function schedulePoll(){ clearTimeout(pollTimer); pollTimer = setTimeout(async () => { await pollMail(); schedulePoll(); }, pollDelay); }
+function renderMailOnly(){ const el = document.querySelector('section.mail'); if (el && S.tab === 'today' && !(sw && sw.mode === 'swipe')) { const t = document.createElement('div'); t.innerHTML = mailPanel(); el.replaceWith(t.firstElementChild); } }
 function maybeAutoMail(){
   if (autoMailTried || !mcp || !sample || !S.mailLoaded) return;
   if (S.mail.checkedDay === ymd(today0()) || new Date().getHours() < 5) return;
@@ -950,13 +987,13 @@ function mailPanel(){
   const KIND = { reply: '답장 필요', followup: '답 기다리는 중', deadline: '마감 있음' };
   const grp = { high: res.filter(r => r.priority === 'high'), normal: res.filter(r => !r.priority || r.priority === 'normal'), low: res.filter(r => r.priority === 'low') };
   const mrow = r => `<div class="mrow mp-${r.priority || 'normal'}"><span class="mtag ${r.priority === 'high' ? 'high' : r.priority === 'low' ? 'lo' : ''}">${esc(MAIL_TAGS[r.tag] || KIND[r.kind] || '메일')}</span>
-      <div class="mrow-main"><b>${esc(r.subject)}</b><span class="meta"><span>${esc(r.from)}</span><span>${KIND[r.kind] || ''}</span>${r.due ? `<span class="num ${r.due <= ymd(today0()) ? 'late' : ''}">${fmtDate(r.due)}까지</span>` : ''}${r.area === 'personal' ? '<span>개인</span>' : ''}</span><span class="meta">${esc(r.why)}</span></div>
+      <div class="mrow-main"><b>${r.isNew && r.addedAt && Date.now() - Date.parse(r.addedAt) < 30 * 60000 ? '<span class="prio" style="margin-right:6px;vertical-align:1px">NEW</span>' : ''}${esc(r.subject)}</b><span class="meta"><span>${esc(r.from)}</span><span>${KIND[r.kind] || ''}</span>${r.due ? `<span class="num ${r.due <= ymd(today0()) ? 'late' : ''}">${fmtDate(r.due)}까지</span>` : ''}${r.area === 'personal' ? '<span>개인</span>' : ''}</span><span class="meta">${esc(r.why)}</span></div>
       <div class="mrow-act"><button class="btn sm" data-act="mail-task" data-tid="${esc(r.id)}">할 일로</button>${r.url ? `<a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">열기</a>` : ''}<button class="btn sm" data-act="mail-skip" data-tid="${esc(r.id)}" aria-label="넘기기">✕</button></div></div>`;
   const normalShown = S.mailMore ? grp.normal : grp.normal.slice(0, Math.max(0, 4 - grp.high.length));
   const hidden = grp.normal.length - normalShown.length + (S.mailMore ? 0 : grp.low.length);
-  const when = S.mail.checkedAt ? (() => { const d = new Date(S.mail.checkedAt); return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())} 확인`; })() : '아직 확인 전';
+  const when = S.mail.checkedAt ? (() => { const d = new Date(S.mail.checkedAt); return `전체 분석 ${pad(d.getHours())}:${pad(d.getMinutes())}`; })() : '아직 확인 전';
   return `<section class="panel mail"><h2><span>메일 브리핑${res.length ? ` <span class="num" style="color:var(--muted);font-weight:500">${res.length}</span>` : ''}</span>
-      <span class="h-actions"><span class="num">${S.mailBusy ? '확인 중…' : when}</span><button class="btn sm" data-act="mail-check" ${S.mailBusy ? 'disabled' : ''}>지금 확인</button></span></h2>
+      <span class="h-actions">${S.mailLive && !pollStopped && Date.now() - S.mailLive < 90000 ? '<span class="live on" style="padding:2px 8px 2px 6px" title="10초마다 새 메일 확인"><i></i>10초마다</span>' : ''}<span class="num">${S.mailBusy ? '분석 중…' : when}</span><button class="btn sm" data-act="mail-check" ${S.mailBusy ? 'disabled' : ''}>전체 다시 분석</button></span></h2>
     ${S.mailErr ? `<div class="err-line">${esc(S.mailErr)}</div>` : ''}
     ${S.mailBusy && !res.length ? '<div class="empty">Shine이 최근 메일을 읽고 있어요… (20~60초)</div>' : ''}
     ${!S.mailBusy && S.mail.checkedAt && !res.length && !S.mailErr ? '<div class="empty">지금 챙길 메일이 없어요.</div>' : ''}
@@ -1365,7 +1402,7 @@ document.addEventListener('click', async e => {
     case 'del': confirmDel = true; renderDialog(); break;
     case 'del-no': confirmDel = false; renderDialog(); break;
     case 'del-yes': { const it = S.items.find(y => y.id === openId); closeDialog(); if (it) await doDelete(it); break; }
-    case 'mail-check': checkMail(false); break;
+    case 'mail-check': pollStopped = false; checkMail(false); break;
     case 'sync-now': refreshNow(true); setStatus('최신 상태로 새로 고쳤어요.'); setTimeout(() => setStatus(''), 2500); break;
     case 'mail-task': el.disabled = true; mailToTask(el.dataset.tid); break;
     case 'mail-skip': mailSkip(el.dataset.tid); break;
@@ -1533,7 +1570,7 @@ function refreshNow(manual){
   tick(); render(); liveText();
   if (S.mailLoaded && mcp && sample && (manual ? false : mailStale())) checkMail(true);
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshNow(false); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { refreshNow(false); pollDelay = POLL_MS; schedulePoll(); setTimeout(pollMail, 500); } });
 window.addEventListener('focus', () => refreshNow(false));
 window.addEventListener('online', () => { liveText(); refreshNow(false); });
 window.addEventListener('offline', liveText);
@@ -1546,7 +1583,7 @@ Store.init();
   const [s, d, m] = await Promise.all([cl.use('sample'), cl.use('dictation'), cl.use('mcp')]);
   sample = s; S.aiReady = !!s; mcp = m;
   if (d) { dictation = d; wireDictation(); }
-  render(); maybeAutoMail();
+  render(); maybeAutoMail(); schedulePoll();
 })();
 })();
 </script>

@@ -37,7 +37,7 @@ Shine은 HTML 파일 하나(`app/shine.html`)로 된 claude.ai 아티팩트다. 
 | example | true | 예시 항목 표시 |
 | deletedAt | 2026-11-16T15:00:00Z | 보관함으로 옮긴 시각. 값이 있으면 보관함에만 보이고, 30일이 지나면 앱이 열릴 때 영구 삭제 |
 
-`mail/latest` 문서: `checkedAt`, `checkedDay`, `results[]`(id, kind, priority, tag, why, action, due, area, subject, from, url), `dismissed[]`(넘긴 스레드), `personalEmail`.
+`mail/latest` 문서: `checkedAt`, `checkedDay`, `me`(내 주소), `seen`(스레드별 마지막 메시지 id), `results[]`(id, kind, priority, tag, isNew, addedAt, why, action, due, area, subject, from, url), `dismissed[]`(넘긴 스레드), `personalEmail`.
 
 ## 한 줄 입력 처리 순서
 
@@ -65,7 +65,10 @@ Shine은 HTML 파일 하나(`app/shine.html`)로 된 claude.ai 아티팩트다. 
 - 데이터는 저장소의 실시간 구독으로 받는다. 다른 기기에서 바꾸면 보통 몇 초 안에 반영되고, 실시간 연결이 안 되면 약 30초마다 다시 가져온다.
 - 화면 오른쪽 위 표시: 실시간(초록) / 연결 중(노랑) / 오프라인(빨강). 누르면 즉시 새로 고친다.
 - 화면을 다시 켜거나 앱으로 돌아오면 시계, 타임라인, 인사말을 다시 그린다.
-- 메일 브리핑은 앱이 열려 있는 동안 7~21시 사이 1시간마다 자동 확인한다 (Shine AI 사용량을 씀).
+- 메일 실시간 감시: 화면이 켜져 있는 동안 10초마다 Gmail 받은편지함(최근 4일)을 가볍게 읽는다. 스레드마다 마지막 메시지 id를 `mail/latest.seen`에 기억해 두고, 새로 오거나 새 답장이 달린 스레드만 Shine AI로 분석해 목록에 더한다(NEW 배지). 바뀐 게 없으면 AI를 부르지 않는다.
+- 내가 마지막으로 답장한 스레드는 감시 중에 자동으로 목록에서 빠진다.
+- 전체 재분석(답 기다리는 후속 메일 포함)은 7~21시 사이 1시간마다, 또는 "전체 다시 분석" 버튼으로 실행한다.
+- Gmail 오류가 나면 30초에서 최대 2분까지 간격을 늘리고, 연결·권한 문제면 감시를 멈추고 안내한다.
 - 편집 창에서 입력 중이거나 항목을 밀고 있을 때는 다른 기기의 변경이 화면을 덮어쓰지 않도록 갱신을 미룬다.
 - 앱 코드가 새로 배포되면 열린 화면에 자동으로 적용된다.
 
