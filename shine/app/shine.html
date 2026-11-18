@@ -203,6 +203,12 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .chip.task{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)}
 .chip.task.work{box-shadow:inset 0 0 0 1.5px var(--work)} .chip.task.personal{box-shadow:inset 0 0 0 1.5px var(--life)}
 .chip.done{opacity:.5;text-decoration:line-through}
+.gtag{color:var(--work);font-weight:600}
+.att{display:flex;flex-wrap:wrap;gap:6px}
+.att span{font-size:12px;background:var(--fill);border-radius:8px;padding:2px 8px}
+.att span.ok{box-shadow:inset 0 0 0 1px var(--life)}
+.att span.no{text-decoration:line-through;color:var(--muted)}
+.gdesc{white-space:pre-wrap;font-size:13px;color:var(--muted);max-height:160px;overflow:auto;background:var(--fill);border-radius:12px;padding:10px 12px;margin:0}
 .chip.hi::before{content:"★ ";color:var(--sun2)}
 .chip .tm{font-size:11px;font-weight:600;margin-right:5px;font-variant-numeric:tabular-nums}
 .mcell .chip{font-size:11.5px;padding:3px 6px}
@@ -482,6 +488,7 @@ const S = {
   mail: { checkedAt: null, checkedDay: null, results: [], dismissed: [], personalEmail: '' },
   flowMode: ls.get('hub.flowMode', 'day'), flowDate: today0(),
   sync: { state: 'wait', at: null },
+  gcal: { events: [], from: null, to: null, at: null, err: '' },
   mailLoaded: false, mailBusy: false, mailErr: '', mailMore: false, gcConfirm: false, gcBusy: false, gcErr: '',
 };
 let sample = null, dictation = null, mcp = null, autoMailTried = false;
@@ -854,6 +861,7 @@ async function createGcal(id, it, attendees, meet){
     const meetUrl = (js.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i) || [])[0] || null;
     const link = (js.match(/https:\/\/www\.google\.com\/calendar\/event\?eid=[^"\\\s]+/) || [])[0] || null;
     await Store.update(id, { gcal: { created: true, link, meet: meetUrl, attendees, tz, at: new Date().toISOString() }, attendees });
+    setTimeout(syncGcal, 1500);
     return { ok: true, text: `Google 캘린더에 생성했어요${attendees.length ? ` · 초대 ${attendees.length}명 발송` : ''}${meetUrl ? ' · Meet 링크 추가' : ''}.` };
   } catch (e) {
     const known = mcpErr(e, 'Google Calendar');
@@ -1010,7 +1018,65 @@ function mailPanel(){
 }
 
 /* ---------- selectors ---------- */
-const visible = () => S.items.filter(i => S.filter === 'all' || i.area === S.filter);
+const visible = () => [...S.items, ...gcalItems()].filter(i => S.filter === 'all' || i.area === S.filter);
+/* ---------- Google Calendar read sync ---------- */
+const evKey = i => (i.title || '').trim().toLowerCase() + '|' + i.date + '|' + (i.time || '');
+function gcalItems(){
+  const own = new Set(S.items.filter(i => i.type === 'event').map(evKey));
+  return (S.gcal.events || []).filter(e => !own.has(evKey(e)));
+}
+function gcalWindow(){
+  const D = S.flowDate || today0(), first = new Date(D.getFullYear(), D.getMonth(), 1), t = today0();
+  let a = mondayOf(first), b = addDays(a, 42);
+  if (addDays(t, -1) < a) a = addDays(t, -1);
+  if (addDays(t, 9) > b) b = addDays(t, 9);
+  return [ymd(a), ymd(b)];
+}
+function evLocal(x){
+  if (!x) return null;
+  if (x.dateTime) { const d = new Date(x.dateTime); return { date: ymd(d), time: `${pad(d.getHours())}:${pad(d.getMinutes())}` }; }
+  if (x.date) return { date: x.date, time: null };
+  return null;
+}
+function mapGcal(ev){
+  if (!ev || ev.status === 'cancelled') return [];
+  const me = (ev.attendees || []).find(a => a.self);
+  if (me && me.responseStatus === 'declined') return [];
+  const st = evLocal(ev.start), en = evLocal(ev.end); if (!st) return [];
+  const base = { type: 'event', title: ev.summary || '(제목 없음)', area: 'work', status: 'open', source: 'gcal', people: [],
+    gev: { id: ev.id, link: ev.htmlLink || '', meet: ev.conferenceUrl || (ev.hangoutLink || ''), location: ev.location || '',
+      description: String(ev.description || '').slice(0, 600), organizer: (ev.organizer || {}).email || '',
+      attendees: (ev.attendees || []).filter(a => !a.self && !a.resource).map(a => ({ email: a.email, name: a.displayName || '', rs: a.responseStatus || '' })).slice(0, 30),
+      response: me ? me.responseStatus : '', tz: (ev.start || {}).timeZone || '', start: st, end: en } };
+  if (st.time) return [{ ...base, id: 'g_' + ev.id, date: st.date, time: st.time, endTime: en && en.date === st.date ? en.time : null }];
+  const out = []; let d = fromYmd(st.date); const last = en && en.date ? addDays(fromYmd(en.date), -1) : d;
+  for (let k = 0; d <= last && k < 14; k++, d = addDays(d, 1)) out.push({ ...base, id: 'g_' + ev.id + '_' + k, date: ymd(d), time: null, endTime: null });
+  return out;
+}
+let gcalFetching = false, gcalStopped = false, gcalSig = '';
+async function syncGcal(){
+  if (!mcp || gcalFetching || gcalStopped) return;
+  const [from, to] = gcalWindow();
+  gcalFetching = true;
+  try {
+    let tok, all = [], n = 0;
+    do {
+      const inp = { startTime: from + 'T00:00:00', endTime: to + 'T00:00:00', orderBy: 'startTime', pageSize: 250 };
+      if (tok) inp.pageToken = tok;
+      const r = await mcp.callTool('Google Calendar', 'list_events', inp, { cache: false });
+      const pl = r.payload || {}; all = all.concat(pl.events || []); tok = pl.nextPageToken; n++;
+    } while (tok && n < 5);
+    const events = all.flatMap(mapGcal), sig = JSON.stringify(events);
+    S.gcal = { events, from, to, at: new Date(), err: '' };
+    if (sig !== gcalSig) { gcalSig = sig; render(); }
+  } catch (e) {
+    const c = e && e.code;
+    if (['server_not_connected','needs_reauth','not_in_manifest','blocked_by_policy','not_granted','capability_disabled','selection_required'].includes(c)) gcalStopped = true;
+    const msg = mcpErr(e, 'Google Calendar') || 'Google 캘린더를 불러오지 못했어요. 잠시 뒤 다시 시도할게요.';
+    if (S.gcal.err !== msg) { S.gcal.err = msg; render(); }
+  } finally { gcalFetching = false; }
+}
+function ensureGcal(){ const [a, b] = gcalWindow(); if (!S.gcal.from || a < S.gcal.from || b > S.gcal.to) syncGcal(); }
 const byTime = (a, b) => (a.date||'9999').localeCompare(b.date||'9999') || (a.time||'99').localeCompare(b.time||'99') || (a.createdAt||'').localeCompare(b.createdAt||'');
 function taskGroups(list){
   const t = ymd(today0()), we = ymd(addDays(mondayOf(today0()), 6));
@@ -1040,14 +1106,15 @@ function rowInner(it, opts = {}){
   if (it.mailUrl) meta.push('<span>메일</span>');
   if (it.people && it.people.length) meta.push(`<span>${esc(it.people.join(', '))}</span>`);
   if (it.example) meta.push('<span>예시</span>');
+  if (it.source === 'gcal') meta.push(`<span class="gtag">Google${it.gev && it.gev.meet ? ' · Meet' : ''}</span>`);
   const hi = it.priority === 'high';
   return `<div class="row ${it.area} ${it.status==='done'?'done':''} ${it.priority === 'low' ? 'low' : ''}">${lead}
     <button class="row-main" data-act="open" data-id="${esc(it.id)}"><span class="title-line">${hi && !opts.noBadge ? '<span class="prio">중요</span>' : ''}<span class="title">${esc(it.title)}</span></span>${meta.length ? `<span class="meta">${meta.join('')}</span>` : ''}</button>
-    ${it.type !== 'note' && it.status !== 'done' ? `<button class="star ${hi ? 'on' : ''}" data-act="star" data-id="${esc(it.id)}" aria-label="${hi ? '중요 해제' : '중요로 표시'}" aria-pressed="${hi}"><svg width="16" height="16" viewBox="0 0 24 24" fill="${hi ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></button>` : ''}</div>`;
+    ${it.type !== 'note' && it.status !== 'done' && it.source !== 'gcal' ? `<button class="star ${hi ? 'on' : ''}" data-act="star" data-id="${esc(it.id)}" aria-label="${hi ? '중요 해제' : '중요로 표시'}" aria-pressed="${hi}"><svg width="16" height="16" viewBox="0 0 24 24" fill="${hi ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></button>` : ''}</div>`;
 }
 function rowHtml(it, opts = {}){
   const inner = rowInner(it, opts);
-  if (opts.noSwipe) return inner;
+  if (opts.noSwipe || it.source === 'gcal') return inner;
   return `<div class="swipe" data-swipe="${esc(it.id)}"><div class="swipe-bg" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>삭제</div>${inner}</div>`;
 }
 const group = (label, list, cls = '', opts) => list.length ? `<div class="group-label ${cls}">${label} <span class="num">${list.length}</span></div>${list.map(i => rowHtml(i, opts)).join('')}` : '';
@@ -1132,7 +1199,7 @@ function flowPanel(){
   return `<section class="tile flow"><div class="flow-head"><h2>${title}</h2><div class="flow-ctl">
       <div class="seg" role="group" aria-label="보기 단위">${['day','week','month'].map((m, k) => `<button data-act="flow-mode" data-v="${m}" aria-pressed="${M===m}">${['일','주','월'][k]}</button>`).join('')}</div>
       <div class="nav"><button class="icon-btn" data-act="flow-prev" aria-label="이전">‹</button><button class="btn sm" data-act="flow-today">오늘</button><button class="icon-btn" data-act="flow-next" aria-label="다음">›</button></div>
-    </div></div>${body}</section>`;
+    </div></div>${S.gcal.err ? `<div class="err-line">${esc(S.gcal.err)}</div>` : ''}${body}</section>`;
 }
 function nextEvent(){
   const list = visible(), t = ymd(today0()), nowMin = new Date().getHours()*60 + new Date().getMinutes();
@@ -1274,7 +1341,28 @@ function related(it){
     (x.people||[]).some(p => ppl.has(p.toLowerCase())) ||
     (x.links||[]).includes(it.id) || (it.links||[]).includes(x.id))).sort(byTime).slice(0, 8);
 }
+function renderGcalDialog(){
+  const root = $('#dlg-root'), ev = (S.gcal.events || []).find(x => x.id === openId);
+  if (!ev) { root.innerHTML = ''; openId = null; return; }
+  const g = ev.gev, RS = { accepted: 'ok', declined: 'no' };
+  const when = `${fmtDate(ev.date)} ${ev.time ? ev.time + (ev.endTime ? '–' + ev.endTime : '') : '종일'}`;
+  root.innerHTML = `<div class="overlay" data-act="dlg-bg"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-h">
+    <span class="gtag" style="font-size:12px">Google 캘린더 일정</span>
+    <h3 id="dlg-h">${esc(ev.title)}</h3>
+    <div class="meta" style="font-size:13.5px"><span class="num">${esc(when)}</span>${g.tz && g.tz !== LTZ ? `<span>(${esc(tzName(g.tz))} 시간대 일정)</span>` : ''}${g.organizer ? `<span>주최: ${esc(g.organizer)}</span>` : ''}</div>
+    ${g.location ? `<div class="meta">장소: ${esc(g.location)}</div>` : ''}
+    ${g.attendees.length ? `<div class="att">${g.attendees.map(a => `<span class="${RS[a.rs] || ''}" title="${esc(a.rs)}">${esc(a.name || a.email)}</span>`).join('')}</div>` : ''}
+    ${g.description ? `<p class="gdesc">${esc(g.description)}</p>` : ''}
+    <div class="dlg-actions">
+      <span class="left">${g.meet ? `<a class="btn primary" href="${esc(g.meet)}" target="_blank" rel="noopener">Meet 참여</a>` : ''}${g.link ? `<a class="btn" href="${esc(g.link)}" target="_blank" rel="noopener">Google 캘린더에서 열기</a>` : ''}</span>
+      <button class="btn" data-act="gc-prep">준비 할 일 추가</button>
+      <button class="btn" data-act="dlg-close">닫기</button>
+    </div>
+    <div class="raw">Google 캘린더 일정은 Shine에서 읽기만 해요. 수정과 삭제는 Google 캘린더에서 해주세요.</div>
+  </div></div>`;
+}
 function renderDialog(){
+  if (openId && openId.startsWith('g_')) { renderGcalDialog(); return; }
   const root = $('#dlg-root'); const it = S.items.find(x => x.id === openId);
   if (!it) { root.innerHTML = ''; openId = null; return; }
   const rel = related(it);
@@ -1362,7 +1450,7 @@ function render(){
   const view = $('#view');
   if (S.storeMode === 'loading') { view.innerHTML = '<div class="panel"><div class="empty">일정과 할 일을 불러오는 중이에요…</div></div>'; return; }
   view.innerHTML = S.tab === 'tasks' ? viewTasks() : S.tab === 'notes' ? viewNotes() : S.tab === 'archive' ? viewArchive() : viewToday();
-  if (openId) { if (!S.items.find(x => x.id === openId)) closeDialog(); else if (!dlgDirty) renderDialog(); }
+  if (openId) { if (openId.startsWith('g_')) renderDialog(); else if (!S.items.find(x => x.id === openId)) closeDialog(); else if (!dlgDirty) renderDialog(); }
   tick(); if (typeof liveText === 'function') liveText();
 }
 
@@ -1376,6 +1464,7 @@ document.addEventListener('click', async e => {
   switch (act) {
     case 'open': dlgDirty = false; openId = id; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); setTimeout(() => { const f = document.getElementById('f-title'); f && f.focus(); }, 0); break;
     case 'toggle': toggleDone(id); break;
+    case 'gc-prep': { const ev = (S.gcal.events || []).find(x => x.id === openId); if (ev) { await Store.add({ type: 'task', title: `${ev.title} 준비`, area: 'work', date: ev.date, time: null, endTime: null, status: 'open', priority: 'normal', people: [], org: null, notes: ev.gev.link ? `Google 캘린더: ${ev.gev.link}` : '', source: 'Google 캘린더', raw: '', links: [] }); closeDialog(); setStatus(`"${ev.title} 준비"를 할 일에 추가했어요.`); } break; }
     case 'cf-no': { if (el.classList.contains('overlay') && e.target !== el) return; const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P && P.onNo) P.onNo(); break; }
     case 'cf-yes': { const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P && P.onYes) P.onYes(); break; }
     case 'undo-del': { const it = lastDeleted; lastDeleted = null; clearTimeout(toastTimer); $('#toast-root').innerHTML = ''; if (it) await Store.unarchive(it.id); break; }
@@ -1388,11 +1477,11 @@ document.addEventListener('click', async e => {
     case 'cal-prev': S.calAnchor = S.calMode==='week' ? addDays(S.calAnchor,-7) : new Date(S.calAnchor.getFullYear(), S.calAnchor.getMonth()-1, 1); render(); break;
     case 'cal-next': S.calAnchor = S.calMode==='week' ? addDays(S.calAnchor,7) : new Date(S.calAnchor.getFullYear(), S.calAnchor.getMonth()+1, 1); render(); break;
     case 'cal-today': S.calAnchor = today0(); render(); break;
-    case 'flow-mode': S.flowMode = el.dataset.v; ls.set('hub.flowMode', S.flowMode); render(); break;
-    case 'flow-today': S.flowDate = today0(); render(); break;
+    case 'flow-mode': S.flowMode = el.dataset.v; ls.set('hub.flowMode', S.flowMode); render(); ensureGcal(); break;
+    case 'flow-today': S.flowDate = today0(); render(); ensureGcal(); break;
     case 'flow-prev': case 'flow-next': { const k = act === 'flow-prev' ? -1 : 1, D = S.flowDate;
-      S.flowDate = S.flowMode === 'day' ? addDays(D, k) : S.flowMode === 'week' ? addDays(D, 7*k) : new Date(D.getFullYear(), D.getMonth() + k, 1); render(); break; }
-    case 'flow-day': S.flowDate = fromYmd(el.dataset.d); S.flowMode = 'day'; ls.set('hub.flowMode', 'day'); render(); break;
+      S.flowDate = S.flowMode === 'day' ? addDays(D, k) : S.flowMode === 'week' ? addDays(D, 7*k) : new Date(D.getFullYear(), D.getMonth() + k, 1); render(); ensureGcal(); break; }
+    case 'flow-day': S.flowDate = fromYmd(el.dataset.d); S.flowMode = 'day'; ls.set('hub.flowMode', 'day'); render(); ensureGcal(); break;
     case 'cal-day': S.calAnchor = fromYmd(el.dataset.d); S.calMode = 'week'; ls.set('hub.calMode', 'week'); render(); break;
     case 'cal-mode': S.calMode = el.dataset.v; ls.set('hub.calMode', S.calMode); render(); break;
     case 'toggle-done': S.showDone = !S.showDone; render(); break;
@@ -1570,7 +1659,8 @@ function refreshNow(manual){
   tick(); render(); liveText();
   if (S.mailLoaded && mcp && sample && (manual ? false : mailStale())) checkMail(true);
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { refreshNow(false); pollDelay = POLL_MS; schedulePoll(); setTimeout(pollMail, 500); } });
+setInterval(() => { if (document.visibilityState === 'visible') syncGcal(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { syncGcal(); refreshNow(false); pollDelay = POLL_MS; schedulePoll(); setTimeout(pollMail, 500); } });
 window.addEventListener('focus', () => refreshNow(false));
 window.addEventListener('online', () => { liveText(); refreshNow(false); });
 window.addEventListener('offline', liveText);
@@ -1581,7 +1671,7 @@ Store.init();
 (async () => {
   const cl = window.claude; if (!cl || !cl.use) { S.aiReady = false; return; }
   const [s, d, m] = await Promise.all([cl.use('sample'), cl.use('dictation'), cl.use('mcp')]);
-  sample = s; S.aiReady = !!s; mcp = m;
+  sample = s; S.aiReady = !!s; mcp = m; syncGcal();
   if (d) { dictation = d; wireDictation(); }
   render(); maybeAutoMail(); schedulePoll();
 })();
