@@ -20,8 +20,9 @@ const items = [{ id: 's1', type: 'event', title: 'Shine-made meeting', area: 'wo
     localStorage.setItem('hub.items', JSON.stringify(I));
     localStorage.setItem('hub.mail', JSON.stringify({ checkedDay: '2026-11-18', checkedAt: '2026-11-18T14:00:00Z', results: [], seen: {} }));
     window.__calls = [];
-    const mcp = { callTool: async (srv, tool) => { window.__calls.push(srv + ':' + tool); return srv === 'Google Calendar' ? { payload: { events: E } } : { payload: { threads: [] } }; } };
-    const sample = Object.assign(async () => ({ text: '' }), { json: async () => [] });
+    const mcp = { callTool: async (srv, tool, input) => { window.__calls.push(srv + ':' + tool + ':' + (input && input.query || '')); return srv === 'Google Calendar' ? { payload: { events: E } } : { payload: { threads: /from:example.com/.test(input.query || '') ? [{ id: 'x1', viewUrl: '#x1', messageCount: 2, messages: [{ id: 'm1', sender: 'client@example.com', subject: 'Re: 2027 rates', snippet: 'Looking forward to the new rate card', date: '2026-11-15T10:00:00Z', labelIds: ['INBOX'] }] }] : [] } }; } };
+    window.__briefCalls = 0;
+    const sample = Object.assign(async () => ({ text: '' }), { json: async (prompt) => { if (/준비 브리핑/.test(prompt)) { window.__briefCalls++; return { summary: '분기 계약 갱신을 앞둔 정기 미팅이에요.', points: ['2027 단가표 공유', 'QC 일정 확인'], open: ['견적서 회신'] }; } return []; } });
     window.claude = { use: async n => n === 'mcp' ? mcp : n === 'sample' ? sample : null };
   }, [events, items]);
   const p = await ctx.newPage(); await p.clock.setFixedTime(new Date('2026-11-18T15:20:00Z')); // 9:20 Dallas
@@ -29,7 +30,13 @@ const items = [{ id: 's1', type: 'event', title: 'Shine-made meeting', area: 'wo
   await p.goto('file://' + path.join(out, 'gcal.html') + '#today'); await p.waitForTimeout(1500);
   const check = (l, ok) => console.log((ok ? 'ok  ' : 'FAIL') + ' ' + l);
   const blocks = await p.$$eval('.flow .ev', n => n.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
-  check('called Google Calendar list_events', (await p.evaluate(() => window.__calls)).includes('Google Calendar:list_events'));
+  check('called Google Calendar list_events', (await p.evaluate(() => window.__calls)).some(c => c.startsWith('Google Calendar:list_events')));
+  check('prep card shows next meeting within 2h', /Client weekly sync/.test(await p.textContent('.prep')) && /40분 후 시작/.test(await p.textContent('#prep-cd')));
+  check('no auto brief 40 min before', (await p.evaluate(() => window.__briefCalls)) === 0);
+  await p.click('[data-act="prep-brief"]'); await p.waitForTimeout(500);
+  const prep = await p.textContent('.prep');
+  check('brief built with points + related mail search', /2027 단가표 공유/.test(prep) && /Re: 2027 rates/.test(prep) && (await p.evaluate(() => window.__calls)).some(c => /from:example.com/.test(c)));
+  await p.screenshot({ path: path.join(out, 'prep-card.png') });
   check('Google events on today timeline', blocks.some(t => /Client weekly sync/.test(t)) && blocks.some(t => /Partner call/.test(t)));
   check('declined event hidden', !blocks.some(t => /Declined/.test(t)));
   check('no duplicate of Shine-made meeting', blocks.filter(t => /Shine-made/.test(t)).length === 1);
@@ -46,5 +53,14 @@ const items = [{ id: 's1', type: 'event', title: 'Shine-made meeting', area: 'wo
   check('all-day multi-day event spans 2 days in week view', wk.filter(t => /Conference day/.test(t)).length === 2);
   await p.screenshot({ path: path.join(out, 'gcal-week.png') });
   check('Google rows have no swipe/star', await p.evaluate(() => [...document.querySelectorAll('.row')].filter(r => (r.querySelector('.title') || {}).textContent === 'Client weekly sync').every(r => !r.querySelector('.star') && !r.closest('.swipe'))));
+  // auto brief 25 min before (fresh page, nothing cached)
+  const p2 = await ctx.newPage(); await p2.clock.setFixedTime(new Date('2026-11-18T15:35:00Z'));
+  await p2.evaluate(() => 0).catch(() => {});
+  await p2.goto('file://' + path.join(out, 'gcal.html') + '#today');
+  await p2.evaluate(() => { try { Object.keys(localStorage).filter(k => k.startsWith('hub.brief.')).forEach(k => localStorage.removeItem(k)); } catch {} });
+  await p2.reload(); await p2.waitForTimeout(3000);
+  const dbg = await p2.evaluate(() => ({ prep: (document.querySelector('.prep') || {}).textContent, calls: window.__briefCalls, keys: Object.keys(localStorage) }));
+  if (!/분기 계약 갱신/.test(dbg.prep || '')) console.log('debug', JSON.stringify(dbg).slice(0, 600));
+  check('auto brief 25 min before', /분기 계약 갱신/.test(dbg.prep || ''));
   console.log('errors:', errs); await b.close();
 })();

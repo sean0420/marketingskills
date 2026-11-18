@@ -114,8 +114,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--glass);border:1px solid var(--stroke);border-radius:18px;padding:8px 8px 8px 16px;font-size:13px}
 
 /* bento */
-.bento{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-areas:"stats stats" "flow focus" "flow tasks" "flow mail" "flow notes";gap:16px;align-items:start}
-.bento.wide{grid-template-areas:"stats stats" "focus focus" "flow flow" "tasks mail" "notes notes"}
+.bento{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-areas:"stats stats" "prep prep" "flow focus" "flow tasks" "flow mail" "flow notes";gap:16px;align-items:start}
+.bento.wide{grid-template-areas:"stats stats" "prep prep" "focus focus" "flow flow" "tasks mail" "notes notes"}
 .stats{grid-area:stats;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:16px}
 .flow{grid-area:flow} .tasks{grid-area:tasks} .mail{grid-area:mail} .recent{grid-area:notes}
 .stat{border-radius:24px;padding:14px 18px;display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -306,10 +306,22 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 .live.off i{background:var(--danger)} .live.wait i{background:var(--sun1)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--life) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
 @media (prefers-reduced-motion:reduce){.live.on i{animation:none}}
+/* meeting prep */
+.prep{grid-area:prep;background:linear-gradient(120deg,color-mix(in srgb,var(--sun1) 16%,var(--glass)),color-mix(in srgb,var(--sun3) 10%,var(--glass)))}
+.prep-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.prep-head h2{margin:0;font-size:19px}
+.prep-cd{display:inline-block;font-size:12px;font-weight:650;color:#fff;background:var(--grad);border-radius:999px;padding:2px 10px;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.prep-acts{display:flex;gap:6px;flex-wrap:wrap}
+.prep-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-top:12px}
+.brief{background:var(--glass-strong);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.brief h4{margin:0;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.04em}
+.brief ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.brief p{margin:0}
+.prep-side{display:flex;flex-direction:column;gap:2px;min-width:0}
 /* iPad portrait */
 @media (max-width:1099px){
   .page{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
-  .bento,.bento.wide{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"stats stats" "focus focus" "flow flow" "tasks mail" "notes notes"}
+  .bento,.bento.wide{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"stats stats" "prep prep" "focus focus" "flow flow" "tasks mail" "notes notes"}
   .stats{grid-template-columns:1.4fr 1fr 1fr 1fr;gap:12px}
 }
 /* phone */
@@ -336,7 +348,9 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
   .mic{width:44px;border-radius:16px}
   .cap-head .hint{display:none}
   .cap-row textarea{font-size:16px;min-height:110px}
-  .bento,.bento.wide{grid-template-columns:minmax(0,1fr);grid-template-areas:"stats" "focus" "tasks" "mail" "flow";gap:12px}
+  .bento,.bento.wide{grid-template-columns:minmax(0,1fr);grid-template-areas:"stats" "prep" "focus" "tasks" "mail" "flow";gap:12px}
+  .prep-grid{grid-template-columns:minmax(0,1fr)}
+  .prep-head{flex-direction:column;align-items:flex-start}
   .focus::before{border-radius:23px}
   .recent{display:none}
   .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -1201,6 +1215,95 @@ function flowPanel(){
       <div class="nav"><button class="icon-btn" data-act="flow-prev" aria-label="이전">‹</button><button class="btn sm" data-act="flow-today">오늘</button><button class="icon-btn" data-act="flow-next" aria-label="다음">›</button></div>
     </div></div>${S.gcal.err ? `<div class="err-line">${esc(S.gcal.err)}</div>` : ''}${body}</section>`;
 }
+/* ---------- meeting prep ---------- */
+const GENERIC_DOMAINS = /^(gmail|googlemail|yahoo|outlook|hotmail|icloud|naver|daum|kakao|me|live|msn|proton|protonmail)\./i;
+function prepTarget(){
+  const now = Date.now(), t = ymd(today0());
+  const evs = visible().filter(i => i.type === 'event' && i.time && i.date === t).map(i => { const st = wallToUtc(i.date, i.time, LTZ), en = i.endTime ? wallToUtc(i.date, i.endTime, LTZ) : st + 3600000; return { i, st, en }; })
+    .filter(x => x.en > now && x.st - now <= 2 * 3600000).sort((a,b) => a.st - b.st);
+  return evs[0] || null;
+}
+function meetingKeys(ev){
+  const myDomain = (S.mail.me || '').split('@')[1] || '';
+  const emails = ev.gev ? ev.gev.attendees.map(a => a.email).filter(Boolean) : (ev.attendees || []);
+  const ext = [...new Set(emails.map(e => (e.split('@')[1] || '').toLowerCase()).filter(d => d && d !== myDomain && !GENERIC_DOMAINS.test(d)))];
+  const words = [ev.org, ...(ev.people || [])].filter(Boolean).map(x => String(x).toLowerCase());
+  ext.forEach(d => words.push(d.split('.')[0]));
+  return { emails, domains: ext, words: [...new Set(words)].filter(w => w.length >= 2) };
+}
+function prepRelated(ev){
+  const k = meetingKeys(ev), hit = txt => k.words.some(w => String(txt || '').toLowerCase().includes(w));
+  const items = S.items.filter(i => i.status !== 'done' && (i.type === 'task' || i.type === 'note') && (hit(i.title) || hit(i.org) || (i.people || []).some(hit))).slice(0, 4);
+  const mails = (S.mail.results || []).filter(r => hit(r.subject) || hit(r.from) || k.emails.some(e => String(r.from).toLowerCase().includes(e.toLowerCase()))).slice(0, 3);
+  return { k, items, mails };
+}
+const briefId = ev => 'b_' + String((ev.gev && ev.gev.id) || ev.id).replace(/[^A-Za-z0-9_\-]/g, '').slice(0, 120);
+S.briefs = {}; let briefBusy = null; const briefTried = new Set();
+async function loadBrief(ev){
+  const id = briefId(ev); if (id in S.briefs) return;
+  S.briefs[id] = null;
+  try { if (Store.db) { const snap = await Store.db.doc('briefs/' + id).get(); if (snap.exists) S.briefs[id] = snap.data(); } else { const b = ls.get('hub.brief.' + id, null); if (b) S.briefs[id] = b; } } catch {}
+  render();
+}
+async function makeBrief(ev){
+  const id = briefId(ev); if (briefBusy || !sample) return;
+  briefBusy = id; briefTried.add(id); render();
+  try {
+    const { k, items, mails } = prepRelated(ev);
+    let threads = [];
+    if (mcp && (k.domains.length || k.emails.length)) {
+      const terms = (k.domains.length ? k.domains.slice(0, 4) : k.emails.filter(e => e !== S.mail.me).slice(0, 5)).flatMap(x => [`from:${x}`, `to:${x}`]);
+      if (terms.length) { try { threads = await gmailThreads(`{${terms.join(' ')}} newer_than:60d`, 8); } catch {} }
+    }
+    const g = ev.gev || {};
+    const prompt = `너는 GloZ Inc. 사업개발 디렉터 Sean Park의 비서 Shine이다. 곧 있을 미팅의 준비 브리핑을 만든다. GloZ는 자막·더빙·게임·웹툰 현지화와 TMS(E'nuff), 자막툴(WowSub), AI 현지화 도구(GloZ LABS)를 한다.
+미팅: ${ev.title} / ${ev.date} ${ev.time}${ev.endTime ? '-' + ev.endTime : ''} (달라스 시간)
+참석자: ${(g.attendees || []).map(a => (a.name ? a.name + ' ' : '') + '<' + a.email + '>').join(', ') || (ev.attendees || []).join(', ') || '정보 없음'}
+설명: ${g.description || ev.notes || '없음'}
+최근 관련 메일 스레드:
+${threads.map(t => `- ${t.date.slice(0,10)} | ${t.name || t.from} | ${t.subject} | ${t.snippet}`).join('\n') || '없음'}
+Shine에 있는 관련 할 일·메모:
+${items.map(i => `- [${i.type === 'task' ? '할 일' : '메모'}] ${i.title}${i.date ? ' (' + i.date + ')' : ''}${i.notes ? ' / ' + String(i.notes).slice(0, 200) : ''}`).join('\n') || '없음'}
+정보가 없는 내용은 지어내지 마라. 근거가 부족하면 짧게 쓴다.
+JSON 객체 하나만 답한다:
+{"summary":"이 미팅의 맥락 1~2문장","points":["미팅에서 꺼내거나 확인할 것, 최대 3개"],"open":["아직 처리되지 않은 일이나 답해야 할 것, 없으면 빈 배열"]}`;
+    const r = await sample.json(prompt, { modelTier: 'default', cache: false });
+    const b = { summary: String((r && r.summary) || '').slice(0, 400), points: (Array.isArray(r && r.points) ? r.points : []).map(String).slice(0, 3),
+      open: (Array.isArray(r && r.open) ? r.open : []).map(String).slice(0, 3), mails: threads.slice(0, 3).map(t => ({ subject: t.subject, from: t.name || t.from, url: t.url, date: t.date.slice(0, 10) })),
+      title: ev.title, date: ev.date, createdAt: new Date().toISOString() };
+    S.briefs[id] = b;
+    try { if (Store.db) await Store.db.doc('briefs/' + id).set(b); else ls.set('hub.brief.' + id, b); } catch {}
+  } catch (e) { S.briefs[id] = { error: e && e.code === 'not_granted' ? 'Shine 사용이 허용되지 않았어요.' : '브리핑을 만들지 못했어요. 다시 시도해주세요.' }; }
+  finally { briefBusy = null; render(); }
+}
+function prepCountdown(x){
+  const m = Math.round((x.st - Date.now()) / 60000);
+  return m > 0 ? (m >= 60 ? `${Math.floor(m/60)}시간 ${m%60 ? (m%60) + '분 ' : ''}후 시작` : `${m}분 후 시작`) : '진행 중';
+}
+function prepTile(){
+  const x = prepTarget(); if (!x) return '';
+  const ev = x.i, g = ev.gev || {}, id = briefId(ev), b = S.briefs[id];
+  if (!(id in S.briefs)) loadBrief(ev);
+  else if (!b && !briefBusy && !briefTried.has(id) && x.st - Date.now() <= 30 * 60000 && sample) setTimeout(() => makeBrief(ev), 0);
+  const { items, mails } = prepRelated(ev);
+  const nAtt = (g.attendees || ev.attendees || []).length;
+  const briefHtml = briefBusy === id ? '<div class="brief"><p>Shine이 최근 메일과 할 일을 모아 브리핑을 만들고 있어요… (20~40초)</p></div>'
+    : b && b.error ? `<div class="brief"><p class="err-line">${esc(b.error)}</p><button class="btn sm" data-act="prep-brief" data-id="${esc(ev.id)}" style="align-self:flex-start">다시 만들기</button></div>`
+    : b ? `<div class="brief">${b.summary ? `<p>${esc(b.summary)}</p>` : ''}
+        ${b.points && b.points.length ? `<h4>이번 미팅에서 챙길 것</h4><ul>${b.points.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+        ${b.open && b.open.length ? `<h4>열려 있는 일</h4><ul>${b.open.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+        ${b.mails && b.mails.length ? `<h4>최근 메일</h4><ul>${b.mails.map(m => `<li><a href="${esc(m.url)}" target="_blank" rel="noopener" style="color:inherit">${esc(m.subject)}</a> <span class="meta" style="display:inline">${esc(m.from)} · ${esc(m.date)}</span></li>`).join('')}</ul>` : ''}
+        <button class="btn sm" data-act="prep-brief" data-id="${esc(ev.id)}" style="align-self:flex-start">새로 만들기</button></div>`
+    : `<div class="brief"><p>미팅 30분 전에 Shine이 자동으로 브리핑을 만들어요. 지금 보려면 눌러주세요.</p><button class="btn primary sm" data-act="prep-brief" data-id="${esc(ev.id)}" style="align-self:flex-start">Shine 브리핑 만들기</button></div>`;
+  return `<section class="tile prep"><div class="prep-head"><div><span class="prep-cd" id="prep-cd">${prepCountdown(x)}</span><h2>${esc(ev.title)}</h2>
+      <span class="meta" style="font-size:13px"><span class="num">${ev.time}${ev.endTime ? '–' + ev.endTime : ''}</span>${nAtt ? `<span>참석자 ${nAtt}명</span>` : ''}${ev.source === 'gcal' ? '<span class="gtag">Google</span>' : ''}</span></div>
+      <div class="prep-acts">${g.meet ? `<a class="btn primary" href="${esc(g.meet)}" target="_blank" rel="noopener">Meet 참여</a>` : ''}<button class="btn" data-act="open" data-id="${esc(ev.id)}">일정 보기</button></div></div>
+    <div class="prep-grid">${briefHtml}
+      <div class="prep-side">${items.length ? `<div class="group-label" style="margin-top:0">관련 할 일·메모</div>${items.map(i => rowHtml(i, { noSwipe: true })).join('')}` : ''}
+        ${mails.length ? `<div class="group-label">관련 메일</div>${mails.map(r => `<div class="row"><span class="kind">메일</span><a class="row-main" href="${esc(r.url || '#')}" target="_blank" rel="noopener" style="text-decoration:none"><span class="title">${esc(r.subject)}</span><span class="meta"><span>${esc(r.from)}</span></span></a></div>`).join('')}` : ''}
+        ${!items.length && !mails.length ? '<div class="empty" style="padding-top:0">Shine에 이 미팅과 관련된 할 일이나 메일이 아직 없어요.</div>' : ''}</div>
+    </div></section>`;
+}
 function nextEvent(){
   const list = visible(), t = ymd(today0()), nowMin = new Date().getHours()*60 + new Date().getMinutes();
   return list.filter(i => i.type === 'event' && i.time && (i.date > t || (i.date === t && toMin(i.time) >= nowMin))).sort(byTime)[0] || null;
@@ -1218,6 +1321,7 @@ function viewToday(){
       <div class="stat ${g.overdue.length ? 'alert' : ''}"><span class="lbl">지난 마감</span><b class="num">${g.overdue.length}</b></div>
       <div class="stat"><span class="lbl">챙길 메일</span><b class="num">${mails}</b>${mhigh ? `<span class="sub" style="color:var(--sun2);font-weight:600">중요 ${mhigh}</span>` : ""}</div>
     </div>
+    ${prepTile()}
     ${focusTile()}
     ${flowPanel()}
     <section class="tile tasks"><h2><span>할 일</span><span class="h-actions num">${nTasks ? nTasks + '개 남음' : ''}</span></h2>
@@ -1272,6 +1376,8 @@ function tick(){
   const ct = document.getElementById('clock-t'); if (ct) ct.textContent = `${(h % 12) || 12}:${pad(n.getMinutes())}`;
   const ap = document.getElementById('clock-ap'); if (ap) ap.textContent = h < 12 ? 'AM' : 'PM';
   const g = greetText(); $('#greet-h').textContent = g.head; $('#greet-s').innerHTML = g.sub;
+  const pc = document.getElementById('prep-cd'); if (pc) { const x = prepTarget(); if (x) pc.textContent = prepCountdown(x); else if (S.tab === 'today') render(); }
+  if (!pc && S.tab === 'today' && prepTarget() && !document.querySelector('.prep')) render();
   const nl = document.getElementById('nowline'), tl = document.getElementById('tl');
   if (nl && tl) { const m = h*60 + n.getMinutes(), sc = Number(tl.dataset.scale || 1); nl.style.top = ((m - Number(tl.dataset.start)) / 60 * hourPx() * sc) + 'px'; const sp = nl.querySelector('span'); if (sp && sp.textContent) sp.textContent = `${pad(h)}:${pad(n.getMinutes())}`; }
   if (tick.day && tick.day !== ymd(today0())) { S.flowDate = today0(); purgeArchive(); render(); }
@@ -1464,6 +1570,7 @@ document.addEventListener('click', async e => {
   switch (act) {
     case 'open': dlgDirty = false; openId = id; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); setTimeout(() => { const f = document.getElementById('f-title'); f && f.focus(); }, 0); break;
     case 'toggle': toggleDone(id); break;
+    case 'prep-brief': { const x = prepTarget(); if (x && x.i.id === id) { delete S.briefs[briefId(x.i)]; S.briefs[briefId(x.i)] = null; makeBrief(x.i); } break; }
     case 'gc-prep': { const ev = (S.gcal.events || []).find(x => x.id === openId); if (ev) { await Store.add({ type: 'task', title: `${ev.title} 준비`, area: 'work', date: ev.date, time: null, endTime: null, status: 'open', priority: 'normal', people: [], org: null, notes: ev.gev.link ? `Google 캘린더: ${ev.gev.link}` : '', source: 'Google 캘린더', raw: '', links: [] }); closeDialog(); setStatus(`"${ev.title} 준비"를 할 일에 추가했어요.`); } break; }
     case 'cf-no': { if (el.classList.contains('overlay') && e.target !== el) return; const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P && P.onNo) P.onNo(); break; }
     case 'cf-yes': { const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P && P.onYes) P.onYes(); break; }
