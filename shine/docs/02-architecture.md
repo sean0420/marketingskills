@@ -95,6 +95,14 @@ Shine은 HTML 파일 하나(`app/shine.html`)로 된 claude.ai 아티팩트다. 
 4. Shine은 메일을 보내지 않는다. 발송은 Gmail에서 직접 한다. 저장한 메일은 브리핑에 "초안 저장됨 ✓"으로 표시된다.
 5. 그룹 주소(sales@ 등)로 받은 메일은 실제 보낸 사람이 가려질 수 있어 받는 사람 확인 안내를 띄운다.
 
+## 아침 자동 브리핑
+
+- 예약 작업 "Shine 아침 브리핑" (id `trig_017HKz7vnQhLQ73pTmH5HFNu`, 평일 06:43 America/Chicago, 실행마다 새 세션, 완료 시 푸시 알림).
+- 작업 내용: 오늘 Google 캘린더 일정, 최근 24시간 메일과 답 기다리는 스레드, Shine의 마감·중요 할 일을 읽어 `briefs/morning_<YYYY-MM-DD>` 문서로 저장한다. 메일과 일정은 읽기만 하고 절대 보내거나 바꾸지 않는다.
+- 앱은 오늘 날짜의 브리핑 문서를 실시간 구독해서, 저장되는 순간 첫 화면 맨 위에 카드로 띄운다. [확인했어요]를 누르면 그날은 숨긴다(기기별).
+- 문서 형식: `{date, createdAt, headline, focus[], meetings[{time,title,meet}], mails[{subject,from,why,priority,url}], tasks[{title,due,priority}]}`.
+- 주의: 예약 작업에 Gmail과 Google Calendar 커넥터가 연결돼 있어야 메일과 일정을 읽을 수 있다. claude.ai의 예약 작업 화면에서 추가한다.
+
 ## Google 캘린더 미팅 생성
 
 `create_event` 호출 값: `summary`, `startTime`, `endTime`, `timeZone`, `attendees[{email}]`, `addGoogleMeetUrl`, `description`. 결과에서 Meet 링크와 캘린더 링크를 찾아 항목에 저장한다.

@@ -114,8 +114,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--glass);border:1px solid var(--stroke);border-radius:18px;padding:8px 8px 8px 16px;font-size:13px}
 
 /* bento */
-.bento{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-areas:"stats stats" "prep prep" "flow focus" "flow tasks" "flow mail" "flow notes";gap:16px;align-items:start}
-.bento.wide{grid-template-areas:"stats stats" "prep prep" "focus focus" "flow flow" "tasks mail" "notes notes"}
+.bento{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-areas:"morning morning" "stats stats" "prep prep" "flow focus" "flow tasks" "flow mail" "flow notes";gap:16px;align-items:start}
+.bento.wide{grid-template-areas:"morning morning" "stats stats" "prep prep" "focus focus" "flow flow" "tasks mail" "notes notes"}
 .stats{grid-area:stats;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:16px}
 .flow{grid-area:flow} .tasks{grid-area:tasks} .mail{grid-area:mail} .recent{grid-area:notes}
 .stat{border-radius:24px;padding:14px 18px;display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -306,6 +306,17 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 .live.off i{background:var(--danger)} .live.wait i{background:var(--sun1)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--life) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
 @media (prefers-reduced-motion:reduce){.live.on i{animation:none}}
+/* morning briefing */
+.morning{grid-area:morning}
+.morning .mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.morning .eyebrow{font-size:12px;font-weight:650;letter-spacing:.04em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.morning h2{margin:2px 0 0;font-size:19px;line-height:1.35;display:block}
+.mgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.mcol{background:var(--glass-strong);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.mcol h4{margin:0;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.04em}
+.mcol ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13.5px}
+.mcol a{color:inherit}
+@media (max-width:860px){.mgrid{grid-template-columns:minmax(0,1fr)}}
 /* meeting prep */
 .prep{grid-area:prep;background:linear-gradient(120deg,color-mix(in srgb,var(--sun1) 16%,var(--glass)),color-mix(in srgb,var(--sun3) 10%,var(--glass)))}
 .prep-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -321,7 +332,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 /* iPad portrait */
 @media (max-width:1099px){
   .page{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
-  .bento,.bento.wide{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"stats stats" "prep prep" "focus focus" "flow flow" "tasks mail" "notes notes"}
+  .bento,.bento.wide{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"morning morning" "stats stats" "prep prep" "focus focus" "flow flow" "tasks mail" "notes notes"}
   .stats{grid-template-columns:1.4fr 1fr 1fr 1fr;gap:12px}
 }
 /* phone */
@@ -348,7 +359,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
   .mic{width:44px;border-radius:16px}
   .cap-head .hint{display:none}
   .cap-row textarea{font-size:16px;min-height:110px}
-  .bento,.bento.wide{grid-template-columns:minmax(0,1fr);grid-template-areas:"stats" "prep" "focus" "tasks" "mail" "flow";gap:12px}
+  .bento,.bento.wide{grid-template-columns:minmax(0,1fr);grid-template-areas:"morning" "stats" "prep" "focus" "tasks" "mail" "flow";gap:12px}
   .prep-grid{grid-template-columns:minmax(0,1fr)}
   .prep-head{flex-direction:column;align-items:flex-start}
   .focus::before{border-radius:23px}
@@ -536,6 +547,7 @@ const Store = {
       done = true; clearTimeout(timer);
       setBanner('저장소 연결이 끊겼어요 (' + esc(err.code) + '). 페이지를 다시 열어주세요.');
     });
+    watchMorning();
     db.doc('mail/latest').onSnapshot(snap => {
       S.mail = { ...S.mail, ...(snap.exists ? snap.data() : {}) };
       if (!snap.metadata.fromCache) { S.mailLoaded = true; maybeAutoMail(); }
@@ -1215,6 +1227,30 @@ function flowPanel(){
       <div class="nav"><button class="icon-btn" data-act="flow-prev" aria-label="이전">‹</button><button class="btn sm" data-act="flow-today">오늘</button><button class="icon-btn" data-act="flow-next" aria-label="다음">›</button></div>
     </div></div>${S.gcal.err ? `<div class="err-line">${esc(S.gcal.err)}</div>` : ''}${body}</section>`;
 }
+/* ---------- morning briefing (written each morning by a scheduled Shine task) ---------- */
+S.morning = null;
+function watchMorning(){
+  if (!Store.db) return;
+  const id = 'morning_' + ymd(today0()); if (watchMorning.id === id) return;
+  if (watchMorning.unsub) watchMorning.unsub();
+  watchMorning.id = id; S.morning = null;
+  watchMorning.unsub = Store.db.doc('briefs/' + id).onSnapshot(sn => { S.morning = sn.exists ? sn.data() : null; render(); }, () => {});
+}
+function morningTile(){
+  const M = S.morning; if (!M || M.date !== ymd(today0())) return '';
+  if (ls.get('hub.morningSeen', '') === M.date) return '';
+  const at = M.createdAt ? new Date(M.createdAt) : null;
+  const arr = x => Array.isArray(x) ? x : [];
+  const focus = arr(M.focus).slice(0, 3), meetings = arr(M.meetings).slice(0, 6), mails = arr(M.mails).slice(0, 5), tasks = arr(M.tasks).slice(0, 5);
+  return `<section class="tile morning"><div class="mhead"><div><span class="eyebrow">☀ 아침 브리핑${at ? ` · ${pad(at.getHours())}:${pad(at.getMinutes())} 정리` : ''}</span><h2>${esc(M.headline || '오늘 하루를 정리했어요.')}</h2></div>
+      <button class="btn sm" data-act="morning-ok">확인했어요</button></div>
+    <div class="mgrid">
+      <div class="mcol"><h4>오늘 집중할 것</h4>${focus.length ? `<ul>${focus.map(t => `<li>${esc(String(t))}</li>`).join('')}</ul>` : '<span class="empty">특별히 급한 일은 없어요.</span>'}
+        ${tasks.length ? `<h4 style="margin-top:6px">마감 할 일</h4><ul>${tasks.map(t => `<li>${esc(t.title || '')}${t.due ? ` <span class="meta" style="display:inline">${esc(t.due === ymd(today0()) ? '오늘' : t.due < ymd(today0()) ? '지남' : t.due)}</span>` : ''}</li>`).join('')}</ul>` : ''}</div>
+      <div class="mcol"><h4>오늘 미팅 ${meetings.length}</h4>${meetings.length ? `<ul>${meetings.map(m => `<li><span class="num">${esc(m.time || '종일')}</span> ${esc(m.title || '')}${m.meet ? ` · <a href="${esc(m.meet)}" target="_blank" rel="noopener">Meet</a>` : ''}</li>`).join('')}</ul>` : '<span class="empty">오늘은 미팅이 없어요.</span>'}</div>
+      <div class="mcol"><h4>답해야 할 메일 ${mails.length}</h4>${mails.length ? `<ul>${mails.map(m => `<li>${m.priority === 'high' ? '<span class="prio" style="margin-right:4px">중요</span>' : ''}${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.subject || '')}</a>` : esc(m.subject || '')}<br><span class="meta" style="display:inline">${esc([m.from, m.why].filter(Boolean).join(' · '))}</span></li>`).join('')}</ul>` : '<span class="empty">급하게 답할 메일은 없어요.</span>'}</div>
+    </div></section>`;
+}
 /* ---------- meeting prep ---------- */
 const GENERIC_DOMAINS = /^(gmail|googlemail|yahoo|outlook|hotmail|icloud|naver|daum|kakao|me|live|msn|proton|protonmail)\./i;
 function prepTarget(){
@@ -1315,6 +1351,7 @@ function viewToday(){
   const mres = (S.mail.results || []).filter(r => S.filter === 'all' || r.area === S.filter), mails = mres.length, mhigh = mres.filter(r => r.priority === 'high').length;
   const nx = nextEvent();
   return `<div class="bento ${S.flowMode !== 'day' ? 'wide' : ''}">
+    ${morningTile()}
     <div class="stats">
       <button class="stat next" ${nx ? `data-act="open" data-id="${esc(nx.id)}"` : ''} style="text-align:left;color:inherit;font:inherit"><span class="lbl">다음 일정${nx && nx.date !== t ? ' · ' + fmtDate(nx.date) : ''}</span><b class="num">${nx ? nx.time : '—'}</b><span class="sub">${nx ? esc(nx.title) : '남은 일정이 없어요'}</span></button>
       <div class="stat"><span class="lbl">오늘 마감</span><b class="num">${g.today.length}</b></div>
@@ -1380,7 +1417,7 @@ function tick(){
   if (!pc && S.tab === 'today' && prepTarget() && !document.querySelector('.prep')) render();
   const nl = document.getElementById('nowline'), tl = document.getElementById('tl');
   if (nl && tl) { const m = h*60 + n.getMinutes(), sc = Number(tl.dataset.scale || 1); nl.style.top = ((m - Number(tl.dataset.start)) / 60 * hourPx() * sc) + 'px'; const sp = nl.querySelector('span'); if (sp && sp.textContent) sp.textContent = `${pad(h)}:${pad(n.getMinutes())}`; }
-  if (tick.day && tick.day !== ymd(today0())) { S.flowDate = today0(); purgeArchive(); render(); }
+  if (tick.day && tick.day !== ymd(today0())) { S.flowDate = today0(); purgeArchive(); watchMorning(); render(); }
   tick.day = ymd(today0());
 }
 function chipHtml(it){
@@ -1645,6 +1682,7 @@ document.addEventListener('click', async e => {
   switch (act) {
     case 'open': dlgDirty = false; openId = id; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); setTimeout(() => { const f = document.getElementById('f-title'); f && f.focus(); }, 0); break;
     case 'toggle': toggleDone(id); break;
+    case 'morning-ok': ls.set('hub.morningSeen', ymd(today0())); render(); break;
     case 'mail-draft': startDraft(el.dataset.tid); break;
     case 'dr-retry': if (S.draft) startDraft(S.draft.tid); break;
     case 'dr-save': saveDraft(); break;
