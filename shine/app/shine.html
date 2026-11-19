@@ -344,6 +344,19 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 .tent .tb b{font-weight:500;overflow-wrap:anywhere}
 .back-btn{display:none}
 @media (max-width:860px){.people{grid-template-columns:minmax(0,1fr)} .people.has-sel .ent-list{display:none} .people:not(.has-sel) .ent-detail{display:none} .back-btn{display:inline-flex}}
+/* voice button */
+.voice-fab{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:26;width:60px;height:60px;border-radius:50%;border:0;color:#fff;background:var(--grad);display:grid;place-items:center;box-shadow:0 12px 30px -8px color-mix(in srgb,var(--sun2) 70%,transparent),0 2px 6px rgba(0,0,0,.12)}
+.voice-fab:active{transform:scale(.96)}
+.voice-fab[data-on="true"]{background:var(--danger);animation:vpulse 1.4s ease-out infinite}
+@keyframes vpulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--danger) 55%,transparent)}100%{box-shadow:0 0 0 18px transparent}}
+@media (prefers-reduced-motion:reduce){.voice-fab[data-on="true"]{animation:none}}
+.voice-panel{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:27;width:min(420px,calc(100vw - 40px));background:var(--glass-strong);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border:1px solid var(--stroke);border-radius:22px;padding:14px 16px;box-shadow:0 18px 50px -14px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px}
+.vp-head{display:flex;align-items:center;gap:8px;font-size:13px}
+.vp-dot{width:9px;height:9px;border-radius:50%;background:var(--danger);animation:vpulse 1.4s ease-out infinite}
+.voice-panel p{margin:0;font-size:16px;line-height:1.5;min-height:24px;overflow-wrap:anywhere}
+.vp-partial{color:var(--muted)}
+.vp-acts{display:flex;gap:8px;justify-content:flex-end}
+@media (max-width:699px){.voice-fab{width:54px;height:54px;bottom:calc(84px + env(safe-area-inset-bottom,0px))}.voice-panel{bottom:calc(148px + env(safe-area-inset-bottom,0px))}}
 /* meeting prep */
 .prep{grid-area:prep;background:linear-gradient(120deg,color-mix(in srgb,var(--sun1) 16%,var(--glass)),color-mix(in srgb,var(--sun3) 10%,var(--glass)))}
 .prep-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -485,6 +498,14 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
   <a href="#people" data-tab="people">사람</a>
   <a href="#archive" data-tab="archive">보관함<span class="count num" id="cnt-arch"></span></a>
 </nav>
+<button class="voice-fab" id="voice-fab" data-on="false" aria-label="말로 입력하기" title="말로 입력하기">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+</button>
+<div class="voice-panel" id="voice-panel" hidden role="status" aria-live="polite">
+  <div class="vp-head"><span class="vp-dot"></span><b>Shine이 듣고 있어요</b></div>
+  <p id="voice-text"></p>
+  <div class="vp-acts"><button class="btn sm" id="voice-cancel">취소</button><button class="btn primary sm" id="voice-done">다 말했어요</button></div>
+</div>
 <div id="dlg-root"></div>
 <div id="confirm-root"></div>
 <div id="toast-root" role="status" aria-live="polite"></div>
@@ -1902,25 +1923,28 @@ window.addEventListener('hashchange', route);
 const origRender = render;
 
 /* ---------- dictation ---------- */
+let dictTarget = null, fab = { on: false, text: '' };
 function wireDictation(){
-  let target = null;
   const btns = [$('#mic-line'), $('#mic-meet')];
   btns.forEach(b => b.hidden = false);
   dictation.onFinal(({ text }) => {
-    if (!target) return;
+    if (fab.on) { fab.text = fab.text ? fab.text + text : text.replace(/^\s+/, ''); fab.partial = ''; renderVoice(); return; }
+    const target = dictTarget; if (!target) return;
     target.value = target.value ? target.value + text : text.replace(/^\s+/, '');
     if (target.id === 'quick') $('#quick').dispatchEvent(new Event('input'));
   });
-  dictation.onPartial(({ text }) => { if (target) setStatus(text ? '듣는 중: ' + text : '듣는 중…'); });
+  dictation.onPartial(({ text }) => { if (fab.on) { fab.partial = text; renderVoice(); return; } if (dictTarget) setStatus(text ? '듣는 중: ' + text : '듣는 중…'); });
   dictation.onState(({ state, reason }) => {
     const on = state !== 'idle';
+    $('#voice-fab').dataset.on = String(on && fab.on);
+    if (fab.on) { if (!on) voiceDone(reason); return; }
     btns.forEach(b => b.dataset.on = String(on));
     if (on) setStatus('듣는 중… 다시 누르면 멈춰요.');
     else { setStatus(reason === 'not_granted' ? '마이크 사용이 허용되지 않았어요.' : ''); }
   });
   btns.forEach(b => b.addEventListener('click', () => {
     if (dictation.active()) { dictation.stop(); return; }
-    target = b.id === 'mic-line' ? $('#quick') : $('#meeting');
+    fab.on = false; dictTarget = b.id === 'mic-line' ? $('#quick') : $('#meeting');
     dictation.start({ language: 'ko' }).catch(err => {
       if (err && err.code === 'not_granted') btns.forEach(x => x.hidden = true);
       else if (err && err.code !== 'stopped') setStatus('음성 입력을 시작하지 못했어요.', true);
@@ -1994,6 +2018,43 @@ function renderConfirm(){
   </div></div>`;
   setTimeout(() => { const b = root.querySelector('[data-act="cf-no"].btn'); b && b.focus(); }, 0);
 }
+
+/* ---------- voice button (bottom-left) ---------- */
+function renderVoice(){
+  const box = $('#voice-panel');
+  if (!fab.on) { box.hidden = true; return; }
+  box.hidden = false;
+  $('#voice-text').innerHTML = (fab.text || fab.partial) ? `${esc(fab.text)}<span class="vp-partial">${esc(fab.partial ? (fab.text ? ' ' : '') + fab.partial : '')}</span>` : '<span class="vp-partial">말씀하세요. 예: 다음주 수요일 오후 3시 Netflix 미팅</span>';
+}
+function voiceDone(reason){
+  const text = (fab.text + (fab.partial ? ' ' + fab.partial : '')).trim();
+  fab.on = false; fab.partial = ''; renderVoice(); $('#voice-fab').dataset.on = 'false';
+  if (fab.cancel) { fab.cancel = false; setStatus('음성 입력을 취소했어요.'); return; }
+  if (reason === 'not_granted') { setStatus('마이크 사용이 허용되지 않았어요. 키보드의 마이크 버튼으로 말해주세요.', true); voiceKeyboard(); return; }
+  if (!text) { setStatus('들린 말이 없어요. 다시 눌러 말해주세요.'); return; }
+  if (S.mode !== 'line') setMode('line');
+  $('#quick').value = text; $('#quick').dispatchEvent(new Event('input'));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  runQuick();
+}
+function voiceKeyboard(){
+  if (S.mode !== 'line') setMode('line');
+  const q = $('#quick'); q.value = ''; q.focus(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  setStatus('키보드의 🎤 버튼을 누르고 말하세요. 다 말한 뒤 Enter를 누르면 Shine이 정리해요.');
+}
+$('#voice-fab').addEventListener('click', () => {
+  if (!dictation) { voiceKeyboard(); return; }
+  if (fab.on) { dictation.stop(); return; }
+  fab.on = true; fab.text = ''; fab.partial = ''; fab.cancel = false; dictTarget = null; renderVoice();
+  dictation.start({ language: 'ko' }).catch(err => {
+    const c = err && err.code;
+    if (c === 'stopped') return;
+    fab.on = false; renderVoice();
+    if (c === 'not_granted' || c === 'unavailable') voiceKeyboard(); else setStatus('음성 입력을 시작하지 못했어요. 다시 눌러주세요.', true);
+  });
+});
+$('#voice-done').addEventListener('click', () => { if (dictation && fab.on) dictation.stop(); });
+$('#voice-cancel').addEventListener('click', () => { fab.cancel = true; if (dictation && fab.on) dictation.stop(); else { fab.on = false; renderVoice(); } });
 
 /* ---------- boot ---------- */
 setMode('line'); $('#quick').blur();
