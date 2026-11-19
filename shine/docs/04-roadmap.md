@@ -4,6 +4,7 @@
 
 - [ ] claude.ai 예약 작업 화면에서 "Shine 아침 브리핑"에 Gmail, Google Calendar 커넥터 추가
 - [ ] iPad Safari에서 Shine을 "홈 화면에 추가"
+- [ ] claude.ai 커넥터 설정에서 Slack 연결 완료 → 새 세션에서 Slack 실시간 확인 추가
 
 - [ ] 첫 Google 캘린더 미팅 생성 후 Meet 링크와 캘린더 링크가 앱에 표시되는지 확인 (본인 이메일만 넣고 테스트 권장)
 - [ ] 개인 Gmail을 업무 Gmail로 자동 전달 설정, 앱 "개인 메일 연결"에 개인 주소 입력

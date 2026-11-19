@@ -47,21 +47,30 @@ const ai = [ // AI deliberately under-rates the quote mail; the rule boost must 
   await p.screenshot({ path: path.join(out, 'mail-priority.png') });
   // live watch: nothing new -> no AI call
   const ai0 = await p.evaluate(() => window.__aiCalls); const g0 = await p.evaluate(() => window.__gmailCalls);
-  await p.waitForTimeout(11000);
-  check('polls Gmail again within ~10s', (await p.evaluate(() => window.__gmailCalls)) > g0);
+  await p.waitForTimeout(31000);
+  check('polls Gmail again within ~30s', (await p.evaluate(() => window.__gmailCalls)) > g0);
   check('no AI call when inbox unchanged', (await p.evaluate(() => window.__aiCalls)) === ai0);
+  check('no alert for mails from the full analysis', !(await p.$('.alert')));
   // a new quote mail arrives, and Sean replies to t3
   await p.evaluate(() => {
     window.__T = [{ id: 't5', viewUrl: '#t5', messageCount: 1, messages: [{ id: 'm5', sender: 'lead@game.example', subject: 'Pricing for game localization (JA/KO)', snippet: 'What is your rate per word?', date: '2026-11-16T15:01:00Z', labelIds: ['INBOX','UNREAD'], toRecipients: ['sean@glozinc.com'] }] },
       ...window.__T.map(t => t.id === 't3' ? { ...t, messageCount: 2, messages: [{ ...t.messages[0], id: 'm3b', sender: 'sean@glozinc.com' }] } : t)];
   });
-  await p.waitForTimeout(11500);
+  await p.waitForTimeout(31500);
   const after = await p.evaluate(() => JSON.parse(localStorage.getItem('hub.mail') || '{}').results || []);
   const a5 = after.find(r => r.id === 't5');
   check('new mail picked up automatically as high + 견적 요청', a5 && a5.priority === 'high' && a5.tag === 'quote');
   check('only the new thread was sent to AI', (await p.evaluate(() => window.__aiCalls)) === ai0 + 1);
   check('mail Sean replied to is removed', !after.some(r => r.id === 't3'));
   check('NEW badge shown', (await p.$$eval('.mail .mrow b', n => n.map(x => x.textContent))).some(t => /^NEW/.test(t)));
+  const al = await p.textContent('.alert').catch(() => '');
+  check('big top alert for the new mail', /Pricing for game localization/.test(al) && /견적 요청/.test(al) && (await p.$$('.alert .al-acts .btn')).length === 3);
+  const ab = await p.locator('.alert').boundingBox();
+  check('alert sits at the top', !!ab && ab.y < 40 && ab.width > 600);
+  await p.screenshot({ path: path.join(out, 'mail-alert.png') });
+  await p.click('[data-act="al-ignore"]'); await p.waitForTimeout(400);
+  const after2 = await p.evaluate(() => JSON.parse(localStorage.getItem('hub.mail') || '{}').results || []);
+  check('ignore closes alert and drops the mail', !(await p.$('.alert')) && !after2.some(r => r.id === 't5'));
   await p.screenshot({ path: path.join(out, 'mail-live.png') });
   console.log('errors:', errs); await b.close();
 })();
