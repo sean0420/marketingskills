@@ -9,7 +9,7 @@ Shine은 HTML 파일 하나(`app/shine.html`)로 된 claude.ai 아티팩트다. 
 | `db` | 일정·할 일·메모(`items`), 메일 브리핑 결과(`mail/latest`), 미팅 브리핑(`briefs/*`) 저장. 접근 규칙: 소유자(Sean)만 읽고 쓰기 |
 | `sample` | Shine AI. 한 줄 해석(빠른 모델), 미팅 메모 정리와 메일 분석(기본 모델) |
 | `dictation` | 음성 입력 (한국어) |
-| `mcp` | Gmail `search_threads`, Google Calendar `list_events`·`create_event` |
+| `mcp` | Gmail `search_threads`·`get_thread`·`create_draft`, Google Calendar `list_events`·`create_event` |
 | `user` | 사용자 식별 |
 
 저장소에 연결할 수 없는 화면(파일로 직접 열 때 등)에서는 브라우저 로컬 저장소로 대신 동작한다.
@@ -86,6 +86,14 @@ Shine은 HTML 파일 하나(`app/shine.html`)로 된 claude.ai 아티팩트다. 
 - 오늘 일정 중 2시간 안에 시작하거나 진행 중인 첫 미팅을 첫 화면 숫자 요약 아래에 띄운다.
 - 관련 정보 찾기: 참석자 이메일의 외부 도메인(gmail 같은 개인 도메인 제외)과 회사·사람 이름으로 Shine의 할 일·메모, 메일 브리핑 항목을 찾는다.
 - 브리핑: 미팅 30분 전 자동으로, 또는 버튼으로 만든다. 참석자 도메인으로 최근 60일 Gmail 스레드 8개를 읽고, 관련 할 일과 함께 Shine AI에 넣어 맥락·챙길 것·열린 일을 만든다. 결과는 `briefs/b_<일정 id>`에 저장해 다른 기기에서도 다시 만들지 않는다.
+
+## 답장 초안
+
+1. 메일 브리핑 항목의 [답장 초안]을 누르면 `get_thread`로 스레드의 최근 6개 메시지를 읽는다. 인용된 이전 메일(On ... wrote:, >)은 잘라낸다.
+2. Shine AI가 상대 언어로 초안을 쓴다. 규칙: 인사 → 감사 → 핵심 → 다음 단계 → 마무리, 서명 제외, em dash 금지(남아 있으면 쉼표로 바꿈), 모르는 사실은 [대괄호]. 견적 요청이면 필요 정보 확인, 답 없는 스레드면 짧은 후속, 무관한 영업이면 정중한 거절.
+3. 받는 사람, 제목, 본문을 고친 뒤 `create_draft`로 마지막 메시지에 대한 답장으로 저장한다(`replyToMessageId`, Gmail 서명 포함).
+4. Shine은 메일을 보내지 않는다. 발송은 Gmail에서 직접 한다. 저장한 메일은 브리핑에 "초안 저장됨 ✓"으로 표시된다.
+5. 그룹 주소(sales@ 등)로 받은 메일은 실제 보낸 사람이 가려질 수 있어 받는 사람 확인 안내를 띄운다.
 
 ## Google 캘린더 미팅 생성
 

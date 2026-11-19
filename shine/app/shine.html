@@ -1010,7 +1010,7 @@ function mailPanel(){
   const grp = { high: res.filter(r => r.priority === 'high'), normal: res.filter(r => !r.priority || r.priority === 'normal'), low: res.filter(r => r.priority === 'low') };
   const mrow = r => `<div class="mrow mp-${r.priority || 'normal'}"><span class="mtag ${r.priority === 'high' ? 'high' : r.priority === 'low' ? 'lo' : ''}">${esc(MAIL_TAGS[r.tag] || KIND[r.kind] || '메일')}</span>
       <div class="mrow-main"><b>${r.isNew && r.addedAt && Date.now() - Date.parse(r.addedAt) < 30 * 60000 ? '<span class="prio" style="margin-right:6px;vertical-align:1px">NEW</span>' : ''}${esc(r.subject)}</b><span class="meta"><span>${esc(r.from)}</span><span>${KIND[r.kind] || ''}</span>${r.due ? `<span class="num ${r.due <= ymd(today0()) ? 'late' : ''}">${fmtDate(r.due)}까지</span>` : ''}${r.area === 'personal' ? '<span>개인</span>' : ''}</span><span class="meta">${esc(r.why)}</span></div>
-      <div class="mrow-act"><button class="btn sm" data-act="mail-task" data-tid="${esc(r.id)}">할 일로</button>${r.url ? `<a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">열기</a>` : ''}<button class="btn sm" data-act="mail-skip" data-tid="${esc(r.id)}" aria-label="넘기기">✕</button></div></div>`;
+      <div class="mrow-act">${mcp && sample ? `<button class="btn sm ${r.drafted ? '' : 'primary'}" data-act="mail-draft" data-tid="${esc(r.id)}">${r.drafted ? '초안 저장됨 ✓' : '답장 초안'}</button>` : ''}<button class="btn sm" data-act="mail-task" data-tid="${esc(r.id)}">할 일로</button>${r.url ? `<a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">열기</a>` : ''}<button class="btn sm" data-act="mail-skip" data-tid="${esc(r.id)}" aria-label="넘기기">✕</button></div></div>`;
   const normalShown = S.mailMore ? grp.normal : grp.normal.slice(0, Math.max(0, 4 - grp.high.length));
   const hidden = grp.normal.length - normalShown.length + (S.mailMore ? 0 : grp.low.length);
   const when = S.mail.checkedAt ? (() => { const d = new Date(S.mail.checkedAt); return `전체 분석 ${pad(d.getHours())}:${pad(d.getMinutes())}`; })() : '아직 확인 전';
@@ -1447,6 +1447,80 @@ function related(it){
     (x.people||[]).some(p => ppl.has(p.toLowerCase())) ||
     (x.links||[]).includes(it.id) || (it.links||[]).includes(x.id))).sort(byTime).slice(0, 8);
 }
+/* ---------- reply drafts ---------- */
+const stripQuoted = t => String(t || '').split(/\n(?:On .{5,160}wrote:|-{2,} ?Original Message ?-{2,}|-----Original Message-----|보낸 사람:|From: .+\nSent: )/)[0].replace(/^>.*$/gm, '').trim();
+async function startDraft(tid){
+  const r = (S.mail.results || []).find(x => x.id === tid); if (!r || !mcp || !sample) return;
+  openId = 'd:' + tid; dlgDirty = false; S.draft = { tid, r, loading: true }; renderDialog();
+  try {
+    const th = (await mcp.callTool('Gmail', 'get_thread', { threadId: tid, messageFormat: 'PLAIN_TEXT' }, { cache: false })).payload || {};
+    const msgs = (th.messages || []).slice(-6); if (!msgs.length) throw { code: 'empty' };
+    const me = (S.mail.me || '').toLowerCase(), isMe = m => !!me && String(m.sender || '').toLowerCase() === me;
+    const nameOf = m => decodeHtml(((m.addressDisplayNames || [])[0] || {}).displayName || '') || m.sender || '';
+    const last = msgs[msgs.length - 1], lastOther = [...msgs].reverse().find(m => !isMe(m)) || last;
+    const to = isMe(last) ? (last.toRecipients || []) : [lastOther.sender].filter(Boolean);
+    const via = (lastOther.addressDisplayNames || []).some(a => / via /i.test(a.displayName || ''));
+    const convo = msgs.map(m => `[${String(m.date || '').slice(0, 16).replace('T', ' ')}] ${isMe(m) ? 'Sean' : nameOf(m)}:\n${stripQuoted(m.plaintextBody || decodeHtml(m.snippet || '')).slice(0, 1800)}`).join('\n\n---\n\n');
+    const prompt = `너는 GloZ Inc. 사업개발 디렉터 Sean Park의 비서 Shine이다. 아래 메일 스레드에 보낼 Sean의 답장 초안을 쓴다.
+GloZ: 자막·더빙·메타데이터·게임·웹툰 현지화 서비스, TMS(E'nuff), 자막·QC 툴(WowSub), AI 현지화 도구(GloZ LABS).
+이 메일에 대한 Shine의 판단: ${MAIL_TAGS[r.tag] || ''} / ${r.why || ''}
+규칙:
+- 스레드에서 상대가 쓴 언어로 쓴다 (영어면 영어, 한국어면 한국어).
+- 구성: 따뜻한 인사, 감사나 확인, 핵심 내용, 분명한 다음 단계, 친근한 마무리. 마지막 서명(이름, 직함)은 넣지 않는다. Gmail 서명이 붙는다.
+- 톤: 정중하고 협력적이며 자신감 있게. 짧고 명확하게. 과장된 표현과 상투적인 문구는 쓰지 않는다.
+- em dash(—)는 절대 쓰지 않는다.
+- 모르는 사실(가격, 날짜, 수량, 파일, 약속)은 지어내지 말고 [단가], [납기일]처럼 대괄호로 비워둔다.
+- 견적·Quote 요청이면: 감사, 견적에 필요한 정보(언어 쌍, 분량·러닝타임, 납기, 파일 포맷 등) 확인 또는 견적 송부 시점 안내.
+- Sean이 마지막으로 보내고 답이 없는 스레드면: 부담 없는 짧은 후속 메일.
+- 무관한 영업 메일이면: 정중하게 짧게 거절.
+JSON 객체 하나만 답한다: {"body":"메일 본문 평문, 마크다운 금지, 줄바꿈은 \\n","notes":["보내기 전에 Sean이 채우거나 확인할 것, 없으면 빈 배열"]}
+
+[메일 스레드, 오래된 순]
+${convo}`;
+    const out = await sample.json(prompt, { modelTier: 'default', cache: false });
+    const body = String((out && out.body) || '').replace(/\s*—\s*/g, ', ').replace(/\r/g, '').trim();
+    if (!body) throw { code: 'invalid_json' };
+    const subj = String(last.subject || r.subject || '');
+    S.draft = { ...S.draft, loading: false, to: to.join(', '), subject: /^re:/i.test(subj) ? subj : 'Re: ' + subj, body,
+      notes: (Array.isArray(out.notes) ? out.notes : []).map(String).slice(0, 5), replyTo: last.id, via };
+  } catch (e) { S.draft = { ...S.draft, loading: false, err: e && e.code === 'invalid_json' ? 'Shine이 초안을 제대로 만들지 못했어요. 다시 써볼게요.' : mailErrText(e) }; }
+  if (openId === 'd:' + tid) { dlgDirty = false; renderDialog(); }
+}
+async function saveDraft(){
+  const D = S.draft; if (!D || D.saving) return;
+  const v = id => (document.getElementById(id) || {}).value || '';
+  const to = (v('dr-to').match(EMAIL_RE) || []), subject = v('dr-subj').trim(), body = v('dr-body').replace(/\s*—\s*/g, ', ');
+  if (!to.length) { D.err = '받는 사람 이메일을 넣어주세요.'; dlgDirty = false; renderDialog(); return; }
+  Object.assign(D, { to: to.join(', '), subject, body, saving: true, err: '' }); dlgDirty = false; renderDialog();
+  try {
+    const input = { to, subject, body, includeSignature: true }; if (D.replyTo) input.replyToMessageId = D.replyTo;
+    const res = await mcp.callTool('Gmail', 'create_draft', input, { cache: false });
+    const js = JSON.stringify(res.payload ?? res.content ?? '');
+    D.saved = { url: (js.match(/https:\/\/mail\.google\.com[^"\\]+/) || [])[0] || D.r.url || '' };
+    await Store.saveMail({ results: (S.mail.results || []).map(x => x.id === D.tid ? { ...x, drafted: true } : x) });
+  } catch (e) { D.err = mcpErr(e, 'Gmail') || '임시보관함에 저장했는지 확인하지 못했어요. Gmail 임시보관함을 확인한 뒤 다시 시도해주세요.'; }
+  D.saving = false; if (openId === 'd:' + D.tid) { dlgDirty = false; renderDialog(); }
+}
+function renderDraftDialog(){
+  const root = $('#dlg-root'), D = S.draft; if (!D) { root.innerHTML = ''; openId = null; return; }
+  const head = `<h3 id="dlg-h">답장 초안</h3><div class="meta" style="font-size:13px"><span>${esc(D.r.subject)}</span><span>${esc(D.r.from)}</span>${MAIL_TAGS[D.r.tag] ? `<span>${esc(MAIL_TAGS[D.r.tag])}</span>` : ''}</div>`;
+  let bodyHtml;
+  if (D.loading) bodyHtml = '<div class="brief"><p>Shine이 메일 스레드를 읽고 초안을 쓰고 있어요… (10~30초)</p></div><div class="dlg-actions"><button class="btn" data-act="dlg-close">닫기</button></div>';
+  else if (D.saved) bodyHtml = `<div class="brief"><p><b>Gmail 임시보관함에 저장했어요.</b> 아직 보내지 않았어요. Gmail에서 확인하고 보내주세요.</p></div>
+      <div class="dlg-actions">${D.saved.url ? `<a class="btn primary" href="${esc(D.saved.url)}" target="_blank" rel="noopener">Gmail에서 열기</a>` : ''}<button class="btn" data-act="dlg-close">닫기</button></div>`;
+  else if (D.err && !D.body) bodyHtml = `<div class="err-line">${esc(D.err)}</div><div class="dlg-actions"><button class="btn" data-act="dr-retry">다시 쓰기</button><button class="btn" data-act="dlg-close">닫기</button></div>`;
+  else bodyHtml = `<div class="form">
+      <label class="full">받는 사람<input id="dr-to" value="${esc(D.to)}"></label>
+      <label class="full">제목<input id="dr-subj" value="${esc(D.subject)}"></label>
+      <label class="full">본문<textarea id="dr-body" style="min-height:280px;line-height:1.55">${esc(D.body)}</textarea></label></div>
+    ${D.via ? '<div class="raw">그룹 주소로 받은 메일이라 실제 보낸 사람 주소가 가려져 있을 수 있어요. 받는 사람을 확인해주세요.</div>' : ''}
+    ${D.notes && D.notes.length ? `<div class="brief"><h4>보내기 전에 확인할 것</h4><ul>${D.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : ''}
+    ${D.err ? `<div class="err-line">${esc(D.err)}</div>` : ''}
+    <div class="dlg-actions"><span class="left"><button class="btn" data-act="dr-retry" ${D.saving ? 'disabled' : ''}>다시 쓰기</button></span>
+      <button class="btn" data-act="dlg-close">닫기</button><button class="btn primary" data-act="dr-save" ${D.saving ? 'disabled' : ''}>${D.saving ? '저장 중…' : 'Gmail 임시보관함에 저장'}</button></div>
+    <div class="raw">Shine은 메일을 보내지 않아요. 임시보관함에 저장만 하고, 발송은 Gmail에서 직접 해주세요.</div>`;
+  root.innerHTML = `<div class="overlay" data-act="dlg-bg"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-h">${head}${bodyHtml}</div></div>`;
+}
 function renderGcalDialog(){
   const root = $('#dlg-root'), ev = (S.gcal.events || []).find(x => x.id === openId);
   if (!ev) { root.innerHTML = ''; openId = null; return; }
@@ -1469,6 +1543,7 @@ function renderGcalDialog(){
 }
 function renderDialog(){
   if (openId && openId.startsWith('g_')) { renderGcalDialog(); return; }
+  if (openId && openId.startsWith('d:')) { renderDraftDialog(); return; }
   const root = $('#dlg-root'); const it = S.items.find(x => x.id === openId);
   if (!it) { root.innerHTML = ''; openId = null; return; }
   const rel = related(it);
@@ -1527,7 +1602,7 @@ async function saveDialog(close){
   if (it.example) patch.example = false;
   await Store.update(it.id, patch); if (close !== false) closeDialog();
 }
-function closeDialog(){ dlgDirty = false; openId = null; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); }
+function closeDialog(){ dlgDirty = false; openId = null; S.draft = null; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); }
 async function toggleDone(id){
   const it = S.items.find(x => x.id === id); if (!it) return;
   const done = it.status !== 'done';
@@ -1556,7 +1631,7 @@ function render(){
   const view = $('#view');
   if (S.storeMode === 'loading') { view.innerHTML = '<div class="panel"><div class="empty">일정과 할 일을 불러오는 중이에요…</div></div>'; return; }
   view.innerHTML = S.tab === 'tasks' ? viewTasks() : S.tab === 'notes' ? viewNotes() : S.tab === 'archive' ? viewArchive() : viewToday();
-  if (openId) { if (openId.startsWith('g_')) renderDialog(); else if (!S.items.find(x => x.id === openId)) closeDialog(); else if (!dlgDirty) renderDialog(); }
+  if (openId) { if (openId.startsWith('g_')) renderDialog(); else if (openId.startsWith('d:')) { if (!dlgDirty) renderDialog(); } else if (!S.items.find(x => x.id === openId)) closeDialog(); else if (!dlgDirty) renderDialog(); }
   tick(); if (typeof liveText === 'function') liveText();
 }
 
@@ -1570,6 +1645,9 @@ document.addEventListener('click', async e => {
   switch (act) {
     case 'open': dlgDirty = false; openId = id; confirmDel = false; S.gcConfirm = false; S.gcErr = ''; S.gcDraft = null; renderDialog(); setTimeout(() => { const f = document.getElementById('f-title'); f && f.focus(); }, 0); break;
     case 'toggle': toggleDone(id); break;
+    case 'mail-draft': startDraft(el.dataset.tid); break;
+    case 'dr-retry': if (S.draft) startDraft(S.draft.tid); break;
+    case 'dr-save': saveDraft(); break;
     case 'prep-brief': { const x = prepTarget(); if (x && x.i.id === id) { delete S.briefs[briefId(x.i)]; S.briefs[briefId(x.i)] = null; makeBrief(x.i); } break; }
     case 'gc-prep': { const ev = (S.gcal.events || []).find(x => x.id === openId); if (ev) { await Store.add({ type: 'task', title: `${ev.title} 준비`, area: 'work', date: ev.date, time: null, endTime: null, status: 'open', priority: 'normal', people: [], org: null, notes: ev.gev.link ? `Google 캘린더: ${ev.gev.link}` : '', source: 'Google 캘린더', raw: '', links: [] }); closeDialog(); setStatus(`"${ev.title} 준비"를 할 일에 추가했어요.`); } break; }
     case 'cf-no': { if (el.classList.contains('overlay') && e.target !== el) return; const P = pendingDelete; pendingDelete = null; renderConfirm(); if (P && P.onNo) P.onNo(); break; }
@@ -1592,7 +1670,8 @@ document.addEventListener('click', async e => {
     case 'cal-day': S.calAnchor = fromYmd(el.dataset.d); S.calMode = 'week'; ls.set('hub.calMode', 'week'); render(); break;
     case 'cal-mode': S.calMode = el.dataset.v; ls.set('hub.calMode', S.calMode); render(); break;
     case 'toggle-done': S.showDone = !S.showDone; render(); break;
-    case 'dlg-bg': case 'dlg-close': closeDialog(); break;
+    case 'dlg-bg': if (openId && openId.startsWith('d:') && S.draft && (dlgDirty || S.draft.loading || S.draft.saving)) break; closeDialog(); break;
+    case 'dlg-close': closeDialog(); break;
     case 'dlg-save': saveDialog(); break;
     case 'dlg-done': await toggleDone(openId); closeDialog(); break;
     case 'del': confirmDel = true; renderDialog(); break;
